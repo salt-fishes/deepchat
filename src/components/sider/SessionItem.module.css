@@ -10,10 +10,14 @@
   line-height: 22px;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
-  animation: session-enter 0.2s var(--ds-ease-in-out);
   transition:
     background-color 0.15s var(--ds-ease-in-out),
-    color 0.15s var(--ds-ease-in-out);
+    color 0.15s var(--ds-ease-in-out),
+    transform var(--motion-feedback) var(--motion-ease-enter);
+
+  &:active {
+    transform: scale(0.98);
+  }
 
   &.active {
     background-color: var(--dsw-specific-sidebar-nav-item-active-accent);
@@ -73,17 +77,6 @@
   }
 }
 
-@keyframes session-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @media (hover: none) {
   .action {
     display: flex;
@@ -92,9 +85,9 @@
 
 @media not all and (min-width: 768px) {
   .item {
-    height: 48px;
-    padding: 13px 6px 13px 12px;
-    border-radius: 16px;
+    height: 46px;
+    padding: 0 4px 0 6px;
+    border-radius: 12px;
     font-size: 16px;
   }
 
@@ -102,10 +95,14 @@
     line-height: 22px;
   }
 
+  .item .action {
+    display: flex;
+  }
+
   .renameInput {
-    height: 48px;
-    padding: 0 12px;
-    border-radius: 16px;
+    height: 46px;
+    padding: 0 6px;
+    border-radius: 12px;
     font-size: 16px;
   }
 }

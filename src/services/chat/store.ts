@@ -4,7 +4,7 @@ import { ApiError, streamMessage } from '../api/client.js'
 import type { ChatModel, CreateMessageRequest } from '../api/types.js'
 import { extractFileIds, getFileErrorCode, isRetryableApiError } from '../api/errors.js'
 import { cancelUpload, describeUploadError, uploadAttachment, useUploads } from '../attachments.js'
-import { useSettings } from '../settings.js'
+import { clearChatPreferences, getChatPreferences, moveChatPreferences, useChatPreferences, useSettings } from '../settings.js'
 import { appendBranch, getVisibleMessages, normalizeSession, selectVersion } from './branches.js'
 import * as db from './db.js'
 import {
@@ -254,8 +254,8 @@ export const bindChatPersistence = () => {
 }
 
 /** 按当前开关创建回复：深度思考对应 thinking，智能搜索控制 deepseek_web_search。 */
-const createReply = (): AssistantMessage => {
-  const { thinking, thinkingEffort, search } = useSettings.getState()
+const createReply = (sessionId: string): AssistantMessage => {
+  const { thinking, thinkingEffort, search } = getChatPreferences(sessionId)
   return {
     id: createId(),
     role: 'assistant',
@@ -390,7 +390,7 @@ const waitForIdle = (sessionId?: string) =>
  * 替换历史对话：先写入暂存，成功后原子替换旧记录；写入为空即删除全部会话与附件。
  * 期间停止生成并禁止修改会话；失败时清除暂存，保留原有记录。
  */
-export const replaceHistory = async (write: () => Promise<void>): Promise<number> => {
+export const replaceHistory = async (write: () => Promise<void>, external = false): Promise<number> => {
   if (get().importingHistory) {
     throw new Error('History replacement is already in progress')
   }
@@ -405,19 +405,24 @@ export const replaceHistory = async (write: () => Promise<void>): Promise<number
     initTask = undefined
     sessionLoads.clear()
     await waitForIdle()
-    await db.clearStaging()
+    if (!external) {
+      await db.clearStaging()
+    }
     let summaries: SessionSummary[]
     try {
       await write()
-      summaries = await db.commitStaging()
+      summaries = await (external ? db.loadSessionSummaries() : db.commitStaging())
     } catch (error) {
-      await db.clearStaging().catch(db.reportStorageError('clear unfinished history replacement'))
+      if (!external) {
+        await db.clearStaging().catch(db.reportStorageError('clear unfinished history replacement'))
+      }
       throw error
     }
     sessionAccess.clear()
     unsavedSessions.clear()
     pendingFiles.clear()
     clearAllDrafts()
+    useChatPreferences.setState(new Map(), true)
     set({
       ready: true,
       initError: false,
@@ -443,6 +448,7 @@ export const replaceHistory = async (write: () => Promise<void>): Promise<number
 
 export const newChat = () => {
   if (!get().importingHistory) {
+    clearChatPreferences(null)
     set({ activeId: null })
     trimSessionCache()
   }
@@ -510,6 +516,7 @@ const removeSessionData = async (id: string): Promise<boolean> => {
     unsavedSessions.delete(id)
     pendingFiles.delete(id)
     clearDraft(id)
+    clearChatPreferences(id)
     set((state) => ({
       sessions: state.sessions.filter((session) => session.id !== id),
       sessionCache: Object.fromEntries(
@@ -573,6 +580,7 @@ export const sendMessage = (targetSessionId: string | null) => {
       rootMessageId: null,
     }
     sessionId = session.id
+    moveChatPreferences(session.id)
     touchSession(session.id)
     set((state) => ({
       sessions: [toSessionSummary(session), ...state.sessions],
@@ -599,7 +607,7 @@ export const sendMessage = (targetSessionId: string | null) => {
     })),
     createdAt: now,
   }
-  const reply = createReply()
+  const reply = createReply(sessionId)
   updateSession(sessionId, (session) => ({
     ...appendBranch(session, history.at(-1)?.id ?? null, [question, reply]),
     updatedAt: now,
@@ -633,7 +641,7 @@ export const regenerateReply = (sessionId: string, messageId?: string) => {
     return
   }
   const history = path.slice(0, index - 1)
-  const reply = createReply()
+  const reply = createReply(sessionId)
   updateSession(sessionId, (s) => ({
     ...appendBranch(s, question.id, [reply]),
     updatedAt: Date.now(),
@@ -665,7 +673,7 @@ export const editMessage = (sessionId: string, messageId: string, content: strin
     files: previous.files,
     createdAt: Date.now(),
   }
-  const reply = createReply()
+  const reply = createReply(sessionId)
   updateSession(sessionId, (s) => ({
     ...appendBranch(s, path[index - 1]?.id ?? null, [question, reply]),
     updatedAt: Date.now(),
@@ -706,7 +714,7 @@ export const continueReply = (sessionId: string, messageId: string) => {
   ) {
     return
   }
-  const { thinking, thinkingEffort, search } = useSettings.getState()
+  const { thinking, thinkingEffort, search } = getChatPreferences(sessionId)
   const reply: AssistantMessage = {
     ...previous,
     // 未记录请求配置的回复，续写时使用默认模型和当前开关。

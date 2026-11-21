@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { loadSession } from '../../services/chat/db.js'
 import { selectSession, useChatStore } from '../../services/chat/store.js'
-import type { Message, Session } from '../../services/chat/types.js'
+import type { Message } from '../../services/chat/types.js'
+import { useSettings } from '../../services/settings.js'
 import {
-  IconArrowLeftOutline16,
   IconChatOutline24,
+  IconChevronRightOutline14,
   IconCloseFill14,
   IconSearchOutline16,
 } from '../base/icons.js'
@@ -28,34 +29,11 @@ const messageText = (message: Message): string => {
     .join(' ')
 }
 
-/** 取第一条命中的消息作为摘要；没有关键词时用最近一条有内容的消息。 */
-const findSnippet = (session: Session, keyword: string): string => {
-  const messages = [...session.messages].reverse()
-  for (const message of messages) {
-    const text = messageText(message).replace(/\s+/g, ' ').trim()
-    if (!text) {
-      continue
-    }
-    if (!keyword || text.toLowerCase().includes(keyword)) {
-      return text
-    }
-  }
-  return ''
-}
-
 const clipSnippet = (text: string, keyword: string): string => {
-  if (!keyword) {
-    return text.length > 90 ? `${text.slice(0, 90)}...` : text
-  }
   const index = text.toLowerCase().indexOf(keyword)
-  const start = Math.max(0, index - 18)
+  const start = Math.max(0, index - 10)
   const end = Math.min(text.length, index + keyword.length + 42)
-  return `${start > 0 ? '...' : ''}${text.slice(start, end)}${end < text.length ? '...' : ''}`
-}
-
-const shortDate = (timestamp: number): string => {
-  const date = new Date(timestamp)
-  return `${date.getMonth() + 1}月${date.getDate()}日`
+  return `${start > 0 ? '…' : ''}${text.slice(start, end)}${end < text.length ? '…' : ''}`
 }
 
 const Highlighted = ({ text, query }: { text: string; query: string }) => {
@@ -82,35 +60,85 @@ const Highlighted = ({ text, query }: { text: string; query: string }) => {
   return <>{parts}</>
 }
 
-type Hit = { session: Session; snippet: string; date: string }
+type Hit = { key: string; id: string; title: string; snippet?: string; time: number }
+const BATCH_SIZE = 8
+const RESULT_LIMIT_INCREMENT = 60
 
 /** 全屏会话搜索：标题与正文都参与匹配，结果按最近更新排序。 */
 export const ConversationSearch = () => {
   const t = useTranslate()
   const { open, query } = useConversationSearch()
   const sessions = useChatStore((state) => state.sessions)
-  const [loaded, setLoaded] = useState<Session[]>([])
+  const locale = useSettings((state) => state.locale)
+  const keyword = query.trim().toLowerCase()
+  const [scan, setScan] = useState<{ keyword: string; hits: Hit[]; done: boolean }>()
+  const [visibleLimit, setVisibleLimit] = useState(RESULT_LIMIT_INCREMENT)
   const inputRef = useRef<HTMLInputElement>(null)
+  const resultsRef = useRef<HTMLDivElement>(null)
+  const dateFormat = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }), [locale])
+  const recent = useMemo<Hit[]>(() => sessions.map((session) => ({
+    key: session.id, id: session.id, title: session.title, time: session.updatedAt,
+  })), [sessions])
 
   useEffect(() => {
-    if (!open) {
+    if (!open || !keyword) {
+      setScan(undefined)
       return
     }
     let cancelled = false
+    setScan({ keyword, hits: [], done: false })
     const load = async () => {
-      const cache = useChatStore.getState().sessionCache
-      const list = await Promise.all(
-        sessions.map(async (summary) => cache[summary.id] ?? (await loadSession(summary.id)))
-      )
+      const hits: Hit[] = []
+      let published = 0
+      for (let offset = 0; offset < sessions.length && !cancelled; offset += BATCH_SIZE) {
+        const batch = await Promise.all(sessions.slice(offset, offset + BATCH_SIZE).map(async (summary) => {
+          const session = useChatStore.getState().sessionCache[summary.id] ?? await loadSession(summary.id).catch(() => undefined)
+          const result: Hit[] = []
+          const base = { id: summary.id, title: summary.title, time: summary.updatedAt }
+          if (session && !cancelled) {
+            for (let index = session.messages.length - 1; index >= 0; index--) {
+              const text = messageText(session.messages[index]).replace(/\s+/g, ' ').trim()
+              if (text.toLowerCase().includes(keyword)) {
+                result.push({ ...base, key: `${summary.id}:${session.messages[index].id}`, snippet: clipSnippet(text, keyword) })
+              }
+            }
+          }
+          if (result.length === 0 && summary.title.toLowerCase().includes(keyword)) {
+            result.push({ ...base, key: summary.id })
+          }
+          return result
+        }))
+        if (cancelled) {
+          return
+        }
+        for (const matches of batch) {
+          for (const match of matches) {
+            hits.push(match)
+          }
+        }
+        if (hits.length > published && (published === 0 || (offset / BATCH_SIZE) % 4 === 0)) {
+          published = hits.length
+          setScan({ keyword, hits: hits.slice(), done: false })
+        }
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 0))
+      }
       if (!cancelled) {
-        setLoaded(list.filter((session): session is Session => Boolean(session)))
+        setScan({ keyword, hits, done: true })
       }
     }
-    void load()
+    const debounce = window.setTimeout(() => void load(), 180)
     return () => {
       cancelled = true
+      window.clearTimeout(debounce)
     }
-  }, [open, sessions])
+  }, [open, sessions, keyword])
+
+  useEffect(() => {
+    setVisibleLimit(RESULT_LIMIT_INCREMENT)
+    if (resultsRef.current) {
+      resultsRef.current.scrollTop = 0
+    }
+  }, [open, keyword])
 
   useEffect(() => {
     if (open) {
@@ -118,25 +146,9 @@ export const ConversationSearch = () => {
     }
   }, [open])
 
-  const hits = useMemo<Hit[]>(() => {
-    const keyword = query.trim().toLowerCase()
-    return loaded
-      .filter((session) => {
-        if (!keyword) {
-          return true
-        }
-        return (
-          session.title.toLowerCase().includes(keyword) ||
-          session.messages.some((message) => messageText(message).toLowerCase().includes(keyword))
-        )
-      })
-      .map((session) => ({
-        session,
-        snippet: clipSnippet(findSnippet(session, keyword), keyword),
-        date: shortDate(session.updatedAt),
-      }))
-      .sort((a, b) => b.session.updatedAt - a.session.updatedAt)
-  }, [loaded, query])
+  const current = scan?.keyword === keyword ? scan : undefined
+  const searching = Boolean(keyword) && !current?.done
+  const hits = keyword ? current?.hits ?? [] : recent
 
   if (!open) {
     return null
@@ -151,7 +163,7 @@ export const ConversationSearch = () => {
           aria-label={t('back')}
           onClick={closeConversationSearch}
         >
-          <IconArrowLeftOutline16 />
+          <IconChevronRightOutline14 />
         </button>
         <div className={styles.searchBox}>
           <span className={styles.searchIcon}>
@@ -161,15 +173,21 @@ export const ConversationSearch = () => {
             ref={inputRef}
             className={styles.input}
             value={query}
-            placeholder={t('searchSessions')}
+            placeholder={t('chatHistorySearch')}
             aria-label={t('searchSessions')}
+            enterKeyHint="search"
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                event.currentTarget.blur()
+              }
+            }}
             onChange={(event) => setConversationSearchQuery(event.target.value)}
           />
           {query ? (
             <button
               type="button"
               className={styles.clear}
-              aria-label={t('close')}
+              aria-label={t('clearConversationSearch')}
               onClick={() => {
                 setConversationSearchQuery('')
                 inputRef.current?.focus({ preventScroll: true })
@@ -180,27 +198,35 @@ export const ConversationSearch = () => {
           ) : null}
         </div>
       </div>
-      <div className={styles.results}>
+      <div ref={resultsRef} className={styles.results} onScroll={(event) => {
+        const list = event.currentTarget
+        if (visibleLimit < hits.length && list.scrollHeight - list.scrollTop - list.clientHeight < 350) {
+          setVisibleLimit((limit) => limit + RESULT_LIMIT_INCREMENT)
+        }
+      }}>
         {hits.length === 0 ? (
-          <div className={styles.empty}>{t('searchNoResults')}</div>
+          <div className={styles.empty} role="status">{t(searching ? 'conversationSearching' : 'searchNoResults')}</div>
         ) : (
-          hits.map(({ session, snippet, date }) => (
+          hits.slice(0, visibleLimit).map(({ key, id, title, snippet, time }) => (
             <button
               type="button"
-              key={session.id}
+              key={key}
               className={styles.item}
               onClick={() => {
                 closeConversationSearch()
                 closeMobileSider()
-                selectSession(session.id)
+                selectSession(id)
               }}
             >
               <span className={styles.avatar}>
                 <IconChatOutline24 />
               </span>
               <span className={styles.body}>
-                <span className={styles.title}>
-                  <Highlighted text={session.title} query={query} />
+                <span className={styles.heading}>
+                  <span className={styles.title}>
+                    <Highlighted text={title || t('untitledChat')} query={query} />
+                  </span>
+                  <span className={styles.date}>{dateFormat.format(time)}</span>
                 </span>
                 {snippet ? (
                   <span className={styles.snippet}>
@@ -208,7 +234,6 @@ export const ConversationSearch = () => {
                   </span>
                 ) : null}
               </span>
-              <span className={styles.date}>{date}</span>
             </button>
           ))
         )}

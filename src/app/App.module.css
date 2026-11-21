@@ -106,10 +106,12 @@
   }
 
   .mainPushed {
-    transform: translateX(var(--sider-width, 83vw));
+    transform: translateX(var(--sider-width, 83vw)) scaleY(0.985);
     overflow: hidden;
-    border-radius: 20px 0 0 20px;
-    box-shadow: -12px 0 28px rgba(0, 0, 0, 0.14);
+    border-radius: 28px;
+    box-shadow:
+      0 0 0 1px var(--dsw-alias-border-l2),
+      0 4px 32px rgba(24, 36, 56, 0.13);
   }
 
   .mainNoTransition {

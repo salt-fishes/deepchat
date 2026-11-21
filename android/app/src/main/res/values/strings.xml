@@ -4,4 +4,10 @@
     <string name="title_activity_main">deepchat</string>
     <string name="package_name">com.deepchat.app</string>
     <string name="custom_url_scheme">com.deepchat.app</string>
+    <string name="history_import_channel">Chat history import</string>
+    <string name="history_import_opening">Opening chat history…</string>
+    <string name="history_import_reading">Reading archive · %1$d%%</string>
+    <string name="history_import_replacing">Saving chat history…</string>
+    <string name="history_import_success">Imported %1$d chats</string>
+    <string name="history_import_failure">Chat history could not be imported</string>
 </resources>

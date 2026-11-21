@@ -1,10 +1,11 @@
 import clsx from 'clsx'
-import { useEffect, useMemo, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import {
   IconPanelLeftOutline16,
   IconSearchOutline16,
   IconSettingsOutline16,
+  IconEllipsisOutline16,
   NewChatIcon,
 } from '../base/icons.js'
 import { setSiderCollapsed } from '../../services/settings.js'
@@ -31,8 +32,36 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const activeId = useChatStore((state) => state.activeId)
   const [now, setNow] = useState(Date.now)
   const [query, setQuery] = useState('')
+  const [managing, setManaging] = useState(false)
   const [deleting, setDeleting] = useState<SessionSummary | null>(null)
-  const [deletePending, setDeletePending] = useState(false)
+const [deletePending, setDeletePending] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
+  const [viewport, setViewport] = useState({ top: 0, height: 0 })
+  const rowHeight = mobile ? 46 : 40
+  const headerHeight = mobile ? 28 : 22
+  const groupGap = mobile ? 12 : 20
+
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (!list) {
+      return
+    }
+    const measure = () => setViewport({ top: list.scrollTop, height: list.clientHeight })
+    const observer = new ResizeObserver(measure)
+    observer.observe(list)
+    list.addEventListener('scroll', measure, { passive: true })
+    measure()
+    return () => {
+      observer.disconnect()
+      list.removeEventListener('scroll', measure)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = 0
+    }
+  }, [query])
 
   // 搜索只按标题即时过滤，避免为搜索加载全部会话消息
   const filtered = useMemo(() => {
@@ -50,6 +79,18 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
         : groupSessions(sessions, now, t),
     [filtered, sessions, now, t]
   )
+
+  const virtualGroups = useMemo(() => {
+    let offset = 0
+    return groups.map((group, index) => {
+      if (index !== 0) {
+        offset += groupGap
+      }
+      const start = offset + (group.label ? headerHeight : 0)
+      offset = start + group.sessions.length * rowHeight
+      return { group, start }
+    })
+  }, [groups, groupGap, headerHeight, rowHeight])
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
@@ -99,7 +140,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           <span className={styles.searchIcon}>
             <IconSearchOutline16 />
           </span>
-          <span className={styles.searchPlaceholder}>{t('searchSessions')}</span>
+          <span className={styles.searchPlaceholder}>{t('chatHistorySearch')}</span>
         </button>
       ) : (
         <div className={styles.searchBox}>
@@ -130,32 +171,65 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
         </button>
       ) : null}
       <div className={styles.listWrap}>
-        <div className={styles.list}>
+        <div ref={listRef} className={styles.list}>
           {filtered && filtered.length === 0 ? (
             <div className={styles.searchEmpty}>{t('searchNoResults')}</div>
           ) : (
-            groups.map((group) => (
+            virtualGroups.map(({ group, start }, index) => {
+              const count = group.sessions.length
+              const first = Math.min(count, Math.max(0, Math.floor((viewport.top - start) / rowHeight) - 5))
+              const last = Math.max(first, Math.min(count, Math.ceil((viewport.top + viewport.height - start) / rowHeight) + 5))
+              return (
               <div key={group.key} className={styles.section}>
-                {group.label ? <div className={styles.sectionHeader}>{group.label}</div> : null}
-                {group.sessions.map((session) => (
+                {group.label ? (
+                  <div className={styles.sectionHeader}>
+                    {group.label}
+                    {mobile && index === 0 ? (
+                      <IconButton
+                        icon={<IconEllipsisOutline16 />}
+                        aria-label={t('chatHistoryManage')}
+                        aria-pressed={managing}
+                        onClick={() => setManaging((value) => !value)}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
+                {first > 0 ? <div aria-hidden="true" style={{ height: first * rowHeight }} /> : null}
+                {group.sessions.slice(first, last).map((session) => (
                   <SessionItem
                     key={session.id}
                     session={session}
                     active={session.id === activeId}
+                    hideActions={mobile && !managing}
                     onDelete={() => setDeleting(session)}
                   />
                 ))}
+                {last < count ? <div aria-hidden="true" style={{ height: (count - last) * rowHeight }} /> : null}
               </div>
-            ))
+              )
+            })
           )}
         </div>
       </div>
       <div className={styles.bottom}>
-        <button type="button" className={styles.settings} onClick={() => openSettings('general')}>
+        <button
+          type="button"
+          className={styles.settings}
+          aria-label={t('settings')}
+          onClick={() => openSettings('general')}
+        >
+          {mobile ? (
+            <span className={styles.account}>
+              <span className={styles.avatar} aria-hidden="true">
+                D
+              </span>
+              <span className={styles.settingsLabel}>{t('appName')}</span>
+            </span>
+          ) : null}
           <span className={styles.settingsIcon}>
             <IconSettingsOutline16 />
           </span>
-          <span className={styles.settingsLabel}>{t('settings')}</span>
+          {!mobile ? <span className={styles.settingsLabel}>{t('settings')}</span> : null}
         </button>
       </div>
       {deleting ? (

@@ -17,6 +17,7 @@ export type DraftAttachment = {
   file: File
   isImage: boolean
   previewUrl: string | null
+  recentPhotoId?: string
 }
 
 type Draft = { text: string; attachments: DraftAttachment[] }
@@ -61,7 +62,8 @@ const upload = (attachment: DraftAttachment, apiKey: string) => {
 export const addDraftFiles = (
   sessionId: string | null,
   files: File[],
-  apiKey: string
+  apiKey: string,
+  recentPhotoId?: string
 ): TranslationMessage | null => {
   if (files.length === 0) {
     return null
@@ -77,6 +79,7 @@ export const addDraftFiles = (
       file,
       isImage: image,
       previewUrl: image ? URL.createObjectURL(file) : null,
+      recentPhotoId,
     }
   })
   updateDraft(sessionId, (draft) => ({ ...draft, attachments: [...draft.attachments, ...added] }))
@@ -121,7 +124,7 @@ export const replaceDraftAttachment = (
   updateDraft(sessionId, (current) => ({
     ...current,
     attachments: current.attachments.map((item) =>
-      item.id === attachmentId ? { id: attachmentId, file, isImage: image, previewUrl } : item
+      item.id === attachmentId ? { ...item, file, isImage: image, previewUrl } : item
     ),
   }))
   upload({ id: attachmentId, file, isImage: image, previewUrl }, apiKey)

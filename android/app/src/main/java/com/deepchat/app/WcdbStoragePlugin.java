@@ -40,7 +40,7 @@ public class WcdbStoragePlugin extends Plugin {
         call.reject(message, error);
     }
 
-    private JSObject encode(WcdbRecord row, String kind) {
+    static JSObject encode(WcdbRecord row, String kind) {
         JSObject item = new JSObject();
         item.put("id", row.id.substring(kind.length() + 1));
         item.put("json", row.json == null ? "" : row.json);
@@ -48,7 +48,7 @@ public class WcdbStoragePlugin extends Plugin {
         return item;
     }
 
-    private WcdbRecord decode(JSONObject item) {
+    static WcdbRecord decode(JSONObject item) {
         WcdbRecord row = new WcdbRecord();
         row.id = item.optString("kind") + ':' + item.optString("id");
         String json = item.optString("json");
@@ -78,6 +78,22 @@ public class WcdbStoragePlugin extends Plugin {
                 call.resolve(new JSObject().put("items", items));
             } catch (WCDBException error) {
                 reject(call, "WCDB read failed", error);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void getStagingSessionPage(PluginCall call) {
+        String after = call.getString("after", "");
+        bridge.execute(() -> {
+            try {
+                JSArray items = new JSArray();
+                for (WcdbRecord row : store.getStagingSessionPage(after)) {
+                    items.put(encode(row, "ss"));
+                }
+                call.resolve(new JSObject().put("items", items));
+            } catch (WCDBException error) {
+                reject(call, "WCDB staging session read failed", error);
             }
         });
     }
@@ -149,32 +165,11 @@ public class WcdbStoragePlugin extends Plugin {
         });
     }
 
-    /** 事务内清空正式表、写入暂存数据并删除暂存键。 */
     @PluginMethod
-    public void commit(PluginCall call) {
-        JSArray clearKinds = call.getArray("clearKinds", new JSArray());
-        JSArray items = call.getArray("items", new JSArray());
-        JSArray stagingKeys = call.getArray("stagingKeys", new JSArray());
-        final List<String> kinds = new ArrayList<>();
-        final List<WcdbRecord> rows = new ArrayList<>();
-        final List<String> keys = new ArrayList<>();
-        try {
-            for (int index = 0; index < clearKinds.length(); index++) {
-                kinds.add(clearKinds.getString(index));
-            }
-            for (int index = 0; index < items.length(); index++) {
-                rows.add(decode(items.getJSONObject(index)));
-            }
-            for (int index = 0; index < stagingKeys.length(); index++) {
-                keys.add(key(stagingKeys.getJSONObject(index)));
-            }
-        } catch (Exception error) {
-            call.reject("Invalid WCDB commit", error);
-            return;
-        }
+    public void commitHistory(PluginCall call) {
         bridge.execute(() -> {
             try {
-                store.commit(kinds, rows, keys);
+                store.commitHistory();
                 call.resolve();
             } catch (WCDBException error) {
                 reject(call, "WCDB commit failed", error);

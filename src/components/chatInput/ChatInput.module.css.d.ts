@@ -1,5 +1,9 @@
 declare const styles: {
   readonly "wrapper": string;
+  readonly "composer": string;
+  readonly "expanded": string;
+  readonly "prompts": string;
+  readonly "closeAttachment": string;
   readonly "session": string;
   readonly "home": string;
   readonly "attachments": string;
@@ -19,7 +23,8 @@ declare const styles: {
   readonly "selected": string;
   readonly "right": string;
   readonly "sendButton": string;
+  readonly "voiceButton": string;
+  readonly "voiceActive": string;
   readonly "disabled": string;
 };
 export = styles;
-

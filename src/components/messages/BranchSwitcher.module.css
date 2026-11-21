@@ -18,3 +18,11 @@
   white-space: nowrap;
   user-select: none;
 }
+
+.switcher:active .count {
+  opacity: 0.65;
+}
+
+.count {
+  transition: opacity var(--motion-feedback) var(--motion-ease-enter);
+}

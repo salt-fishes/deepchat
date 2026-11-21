@@ -1,6 +1,9 @@
 package com.deepchat.app;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
 import android.database.Cursor;
@@ -18,11 +21,7 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.IOException;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.RandomAccessFile;
 
 @CapacitorPlugin(name = "HistoryFile")
 public class HistoryFilePlugin extends Plugin {
@@ -30,8 +29,7 @@ public class HistoryFilePlugin extends Plugin {
     private boolean choosing;
     private Uri destination;
     private OutputStream output;
-    private File sourceFile;
-    private RandomAccessFile source;
+    private Uri source;
 
     @PluginMethod
     public synchronized void chooseSource(PluginCall call) {
@@ -67,7 +65,6 @@ public class HistoryFilePlugin extends Plugin {
             return;
         }
         Uri uri = data.getData();
-        // Document providers can return non-seekable streams. Copy to a private cache file on the plugin thread.
         bridge.execute(() -> prepareSource(call, uri));
     }
 
@@ -80,45 +77,43 @@ public class HistoryFilePlugin extends Plugin {
                     name = cursor.getString(0);
                 }
             }
-            sourceFile = File.createTempFile("history-import-", ".tmp", getContext().getCacheDir());
-            try (InputStream in = resolver.openInputStream(uri); OutputStream out = new FileOutputStream(sourceFile)) {
-                if (in == null) {
-                    throw new IOException("The backup could not be opened");
-                }
-                byte[] buffer = new byte[64 * 1024];
-                long total = 0;
-                for (int count; (count = in.read(buffer)) != -1;) {
-                    total += count;
-                    if (total >= 0xffffffffL) {
-                        throw new IOException("The backup exceeds the supported ZIP size");
-                    }
-                    out.write(buffer, 0, count);
-                }
-            }
-            source = new RandomAccessFile(sourceFile, "r");
-            call.resolve(new JSObject().put("selected", true).put("name", name).put("size", source.length()));
-        } catch (IOException | RuntimeException error) {
+            source = uri;
+            call.resolve(new JSObject().put("selected", true).put("name", name));
+        } catch (RuntimeException error) {
             closeSource();
             call.reject("Unable to read the selected backup", error);
         }
     }
 
     @PluginMethod
-    public synchronized void read(PluginCall call) {
-        long offset = call.getData().optLong("offset", -1L);
-        int length = call.getInt("length", 0);
-        if (source == null || offset < 0 || length <= 0 || length > MAX_CHUNK) {
-            call.reject("Invalid history backup read");
+    public synchronized void startImport(PluginCall call) {
+        if (source == null) {
+            call.reject("No history backup selected");
             return;
         }
         try {
-            byte[] bytes = new byte[length];
-            source.seek(offset);
-            source.readFully(bytes);
-            call.resolve(new JSObject().put("data", Base64.encodeToString(bytes, Base64.NO_WRAP)));
-        } catch (IOException error) {
-            call.reject("Unable to read the backup", error);
+            String id = HistoryImportService.start(getContext(), source);
+            source = null;
+            call.resolve(new JSObject().put("id", id));
+            Activity activity = getActivity();
+            if (Build.VERSION.SDK_INT >= 33 && activity != null
+                && activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                activity.runOnUiThread(() -> {
+                    var prefs = getContext().getSharedPreferences("history-import", 0);
+                    if (!activity.isFinishing() && !prefs.getBoolean("askedNotifications", false)) {
+                        prefs.edit().putBoolean("askedNotifications", true).apply();
+                        activity.requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS}, 3801);
+                    }
+                });
+            }
+        } catch (RuntimeException error) {
+            call.reject("Unable to start the background import", error);
         }
+    }
+
+    @PluginMethod
+    public void getImportStatus(PluginCall call) {
+        call.resolve(HistoryImportService.status());
     }
 
     @PluginMethod
@@ -128,18 +123,7 @@ public class HistoryFilePlugin extends Plugin {
     }
 
     private void closeSource() {
-        if (source != null) {
-            try {
-                source.close();
-            } catch (IOException ignored) {
-                // Continue with removal of the cached copy.
-            }
-            source = null;
-        }
-        if (sourceFile != null) {
-            sourceFile.delete();
-            sourceFile = null;
-        }
+        source = null;
     }
 
     @PluginMethod

@@ -12,6 +12,8 @@ declare const styles: {
   readonly "settings": string;
   readonly "settingsIcon": string;
   readonly "settingsLabel": string;
+  readonly "account": string;
+  readonly "avatar": string;
   readonly "collapsed": string;
   readonly "collapsedGroup": string;
   readonly "drawer": string;
@@ -19,4 +21,3 @@ declare const styles: {
   readonly "mobile": string;
 };
 export = styles;
-

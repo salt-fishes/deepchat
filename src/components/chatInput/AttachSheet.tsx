@@ -5,6 +5,7 @@ import { useAnchoredPosition } from '../base/anchored.js'
 import { registerOverlayToken } from '../base/Modal.js'
 import {
   IconCameraOutline16,
+  IconCheckOutline16,
   IconPaperclipOutline16,
   IconPhotoOutline16,
 } from '../base/icons.js'
@@ -18,12 +19,12 @@ import {
 } from '../../services/mediaGallery.js'
 import { openCropper } from './imageCropperState.js'
 import { useTranslate } from '../../i18n/index.js'
+import type { DraftAttachment } from '../../services/chat/drafts.js'
+import { showToast } from '../base/toastState.js'
 import styles from './AttachSheet.module.css'
 
 /** 由 ACCEPT_FILE_EXTS 过滤出图片后缀；相机/相册入口只暴露校验管线真正接受的格式 */
-const IMAGE_ACCEPT = [
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif',
-]
+const IMAGE_ACCEPT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif']
   .map((ext) => `.${ext}`)
   .join(',')
 
@@ -31,12 +32,16 @@ export const AttachSheet = ({
   open,
   onClose,
   onFiles,
+  attachments,
+  onRemove,
   anchorRef,
   isMobile,
 }: {
   open: boolean
   onClose: () => void
-  onFiles: (files: File[]) => void
+  onFiles: (files: File[], recentPhotoId?: string) => boolean
+  attachments: DraftAttachment[]
+  onRemove: (id: string) => void
   /** 桌面 popover 的锚点（加号按钮） */
   anchorRef?: React.RefObject<HTMLButtonElement | null>
   isMobile: boolean
@@ -48,6 +53,7 @@ export const AttachSheet = ({
   const mobileSheetRef = useRef<HTMLDivElement>(null)
   const [photos, setPhotos] = useState<RecentPhoto[]>([])
   const [photosState, setPhotosState] = useState<'loading' | 'ready' | 'unavailable'>('loading')
+  const pendingPhoto = useRef<AbortController | null>(null)
   const [adding, setAdding] = useState(false)
   const { floatingRef, position } = useAnchoredPosition<HTMLButtonElement, HTMLDivElement>(
     open && !isMobile,
@@ -68,10 +74,20 @@ export const AttachSheet = ({
     }
   }, [open, isMobile])
 
-  // 打开时拉取最近图片；权限被拒或无照片则整行隐藏
   useEffect(() => {
     if (!open) {
       setAdding(false)
+      return
+    }
+    return () => {
+      pendingPhoto.current?.abort()
+      pendingPhoto.current = null
+    }
+  }, [open])
+
+  // 打开时拉取最近图片；权限被拒或无照片则整行隐藏
+  useEffect(() => {
+    if (!open) {
       return
     }
     if (!isMediaGalleryAvailable()) {
@@ -105,10 +121,10 @@ export const AttachSheet = ({
     if (list.length === 0) {
       return
     }
-    onFiles(list)
-    onClose()
+    if (onFiles(list) && !isMobile) {
+      onClose()
+    }
   }
-
 
   /**
    * 拍照：优先原生相机 intent（WebView 的 <input capture> 在 Android 上只弹文件选择器）；
@@ -128,8 +144,9 @@ export const AttachSheet = ({
         if (!result) {
           return
         }
-        onFiles([result])
-        onClose()
+        if (onFiles([result]) && !isMobile) {
+          onClose()
+        }
         return
       } catch {
         // 原生链路不可用：走回退
@@ -138,22 +155,42 @@ export const AttachSheet = ({
     cameraInputRef.current?.click()
   }
 
-  /** 最近图片单击直接添加原图（缩略图右侧圆圈才是多选），添加后收起面板 */
-  const addSingle = async (id: string) => {
-    if (adding) {
+  const togglePhoto = async (id: string, attachmentId?: string) => {
+    if (pendingPhoto.current) {
       return
     }
+    if (attachmentId) {
+      onRemove(attachmentId)
+      return
+    }
+    const controller = new AbortController()
+    pendingPhoto.current = controller
     setAdding(true)
     try {
       const dataUrl = await getPhotoDataUrl(id)
-      if (!dataUrl) {
+      if (controller.signal.aborted) {
         return
       }
-      const blob = await (await fetch(dataUrl)).blob()
-      onFiles([new File([blob], `photo_${id}.jpg`, { type: 'image/jpeg' })])
-      onClose()
+      if (!dataUrl) {
+        showToast({ key: 'attachPhotoUnavailable', type: 'error' })
+        return
+      }
+      const blob = await (await fetch(dataUrl, { signal: controller.signal })).blob()
+      if (!controller.signal.aborted) {
+        const file = new File([blob], `photo_${id}.jpg`, { type: blob.type || 'image/jpeg' })
+        if (onFiles([file], id) && !isMobile) {
+          onClose()
+        }
+      }
+    } catch {
+      if (!controller.signal.aborted) {
+        showToast({ key: 'attachPhotoUnavailable', type: 'error' })
+      }
     } finally {
-      setAdding(false)
+      if (pendingPhoto.current === controller) {
+        pendingPhoto.current = null
+        setAdding(false)
+      }
     }
   }
 
@@ -161,26 +198,37 @@ export const AttachSheet = ({
     <>
       {photosState === 'ready' ? (
         <div className={styles.photosRow}>
-          {photos.map((photo) => (
-            <button
-              key={photo.id}
-              type="button"
-              className={styles.photo}
-              disabled={adding}
-              onClick={() => void addSingle(photo.id)}
-            >
-              <img className={styles.photoThumb} src={photo.thumbnail} alt="" />
-            </button>
-          ))}
+          {photos.map((photo, index) => {
+            const selected = attachments.find((item) => item.recentPhotoId === photo.id)
+            return (
+              <button
+                key={photo.id}
+                type="button"
+                className={styles.photo}
+                aria-label={t('attachRecentPhoto', { number: index + 1 })}
+                aria-pressed={Boolean(selected)}
+                disabled={adding}
+                onClick={() => void togglePhoto(photo.id, selected?.id)}
+              >
+                <img className={styles.photoThumb} src={photo.thumbnail} alt="" />
+                <span className={styles.photoCheck} aria-hidden="true">
+                  {selected ? <IconCheckOutline16 /> : null}
+                </span>
+              </button>
+            )
+          })}
         </div>
       ) : null}
-      {photosState === 'loading' ? <div className={styles.photosRow} aria-hidden /> : null}
       <div className={styles.cards}>
         <button type="button" className={styles.card} onClick={() => void takeCameraPhoto()}>
           <IconCameraOutline16 />
           <span>{t('attachCamera')}</span>
         </button>
-        <button type="button" className={styles.card} onClick={() => galleryInputRef.current?.click()}>
+        <button
+          type="button"
+          className={styles.card}
+          onClick={() => galleryInputRef.current?.click()}
+        >
           <IconPhotoOutline16 />
           <span>{t('attachAlbum')}</span>
         </button>
@@ -227,7 +275,7 @@ export const AttachSheet = ({
   )
 
   if (isMobile) {
-    // 移动端：面板常驻挂载于输入容器内部，随 grid 行高展开收起，与输入框连成一体
+    // 移动端面板从输入卡片下方展开，与卡片保持独立轮廓。
     return (
       <div
         ref={mobileSheetRef}

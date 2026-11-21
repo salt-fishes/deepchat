@@ -34,6 +34,14 @@ public final class WcdbStore {
         return table.getAllObjects(DBWcdbRecord.id.like(kind + ":%"));
     }
 
+    public List<WcdbRecord> getStagingSessionPage(String after) throws WCDBException {
+        return table.getAllObjects(
+            DBWcdbRecord.id.gt(key("ss", after)).and(DBWcdbRecord.id.lt("ss;")),
+            DBWcdbRecord.id.order(Order.Asc),
+            8
+        );
+    }
+
     public void put(final List<WcdbRecord> rows) throws WCDBException {
         if (rows.isEmpty()) {
             return;
@@ -64,21 +72,17 @@ public final class WcdbStore {
         });
     }
 
-    /** 在一个事务里完成「清空正式数据 → 写入正式数据 → 清空暂存」。 */
-    public void commit(final List<String> clearKinds, final List<WcdbRecord> rows, final List<String> stagingKeys)
-        throws WCDBException {
+    /** 仅更改记录前缀，BLOB 留在数据库内，切换失败时回滚正式历史。 */
+    public void commitHistory() throws WCDBException {
         db.runTransaction(new Transaction() {
             @Override
             public boolean insideTransaction(Handle handle) throws WCDBException {
-                for (String kind : clearKinds) {
+                for (String kind : new String[] {"s", "m", "f"}) {
                     handle.deleteObjects(TABLE, DBWcdbRecord.id.like(kind + ":%"));
                 }
-                for (WcdbRecord row : rows) {
-                    handle.insertOrReplaceObject(row, DBWcdbRecord.allFields(), TABLE);
-                }
-                for (String key : stagingKeys) {
-                    handle.deleteObjects(TABLE, DBWcdbRecord.id.eq(key));
-                }
+                handle.execute("UPDATE kv SET id = 's:' || substr(id, 4) WHERE id > 'ss:' AND id < 'ss;'");
+                handle.execute("UPDATE kv SET id = 'm:' || substr(id, 4) WHERE id > 'ms:' AND id < 'ms;'");
+                handle.execute("UPDATE kv SET id = 'f:' || substr(id, 4) WHERE id > 'fs:' AND id < 'fs;'");
                 return true;
             }
         });

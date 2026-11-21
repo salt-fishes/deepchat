@@ -22,9 +22,9 @@
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 4px;
-  height: 68px;
-  padding: 8px 12px 8px 6px;
+  gap: 1px;
+  height: 70px;
+  padding: 10px 16px 8px 6px;
   box-sizing: border-box;
 }
 
@@ -41,6 +41,12 @@
   background: transparent;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
+
+  svg {
+    width: 17px;
+    height: 17px;
+    transform: rotate(180deg);
+  }
 }
 
 .searchBox {
@@ -49,17 +55,27 @@
   min-width: 0;
   align-items: center;
   gap: 8px;
-  height: 46px;
-  padding: 0 12px;
+  height: 48px;
+  padding: 0 12px 0 14px;
   box-sizing: border-box;
   border-radius: 23px;
   background: var(--dsw-alias-interactive-bg-hover);
+  transition: box-shadow var(--motion-popup) var(--motion-ease-enter);
+
+  &:has(:focus-visible) {
+    box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l2);
+  }
 }
 
 .searchIcon {
   display: flex;
   flex-shrink: 0;
   color: var(--dsw-alias-label-tertiary);
+
+  svg {
+    width: 19px;
+    height: 19px;
+  }
 }
 
 .input {
@@ -84,14 +100,31 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 32px;
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: var(--dsw-alias-label-tertiary);
+  background: transparent;
   color: var(--dsw-alias-bg-base);
   cursor: pointer;
+  animation: search-control-in var(--motion-popup) var(--motion-ease-enter) both;
+
+  svg {
+    box-sizing: border-box;
+    width: 20px;
+    height: 20px;
+    padding: 3px;
+    border-radius: 50%;
+    background: var(--dsw-alias-label-tertiary);
+  }
+}
+
+.back,
+.clear {
+  transition: transform var(--motion-feedback) var(--motion-ease-enter);
+
+  &:active { transform: scale(0.9); }
 }
 
 .results {
@@ -100,26 +133,42 @@
   overflow-y: auto;
   overscroll-behavior-y: contain;
   touch-action: pan-y pinch-zoom;
-  padding: 4px 0 12px;
-  scrollbar-color: var(--scroll-color) transparent;
+  padding: 3px 0 12px;
+  scrollbar-width: none;
 }
 
 .item {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 14px;
-  padding: 13px 18px;
+  gap: 12px;
+  box-sizing: border-box;
+  min-height: 74px;
+  padding: 10px 16px;
   border: none;
   background: transparent;
   text-align: left;
   font: inherit;
   cursor: pointer;
-  transition: background-color var(--motion-feedback) var(--motion-ease-enter);
+  transition: background-color var(--motion-feedback) var(--motion-ease-enter),
+    transform var(--motion-feedback) var(--motion-ease-enter);
+
+  &:nth-child(-n + 10) {
+    animation: search-result-in var(--motion-panel) var(--motion-ease-enter) both;
+  }
 
   &:active {
     background: var(--dsw-alias-interactive-bg-hover);
+    transform: scale(0.99);
   }
+}
+
+@keyframes search-control-in {
+  from { opacity: 0; scale: 0.8; }
+}
+
+@keyframes search-result-in {
+  from { opacity: 0; translate: 0 5px; }
 }
 
 .avatar {
@@ -127,8 +176,8 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 50%;
   color: var(--dsw-alias-label-tertiary);
@@ -139,7 +188,15 @@
   flex: 1;
   min-width: 0;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
 }
 
 .title,
@@ -154,7 +211,7 @@
   color: var(--dsw-alias-label-primary);
   font-size: 16px;
   line-height: 22px;
-  font-weight: 500;
+  font-weight: 450;
 }
 
 .snippet {
@@ -164,17 +221,15 @@
 }
 
 .mark {
-  color: var(--dsw-alias-brand-text);
+  color: var(--dsw-alias-label-primary);
   background: transparent;
   font-weight: 600;
 }
 
 .date {
   flex-shrink: 0;
-  align-self: flex-start;
-  padding-top: 3px;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 20px;
   white-space: nowrap;
 }
@@ -184,4 +239,5 @@
   color: var(--dsw-alias-label-tertiary);
   font-size: 14px;
   text-align: center;
+  animation: search-result-in var(--motion-popup) var(--motion-ease-enter) both;
 }

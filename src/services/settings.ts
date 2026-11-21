@@ -7,6 +7,8 @@ export type Locale = 'zh-CN' | 'en-US'
 
 /** 主题偏好；默认跟随系统 */
 export type ThemePreference = 'light' | 'dark' | 'system'
+export type ChatFontSize = 'small' | 'default' | 'large' | 'extraLarge'
+export const chatFontOffset = { small: -2, default: 0, large: 2, extraLarge: 4 } as const
 
 /** 深度思考强度：仅深度思考开启时生效，对应 output_config.effort */
 export type { ThinkingEffort }
@@ -23,6 +25,7 @@ type Settings = {
   compactThinking: boolean
   search: boolean
   siderCollapsed: boolean
+  chatFontSize: ChatFontSize
 }
 
 const KEYS = {
@@ -36,6 +39,7 @@ const KEYS = {
   compactThinking: 'chat-demo:compact-thinking',
   search: 'chat-demo:search',
   siderCollapsed: 'chat-demo:sider-collapsed',
+  chatFontSize: 'deepchat:chat-font-size',
 } as const
 
 const read = (key: string) => {
@@ -112,7 +116,41 @@ export const useSettings = create<Settings>(() => ({
   compactThinking: read(KEYS.compactThinking) !== 'false',
   search: read(KEYS.search) === 'true',
   siderCollapsed: read(KEYS.siderCollapsed) === 'true',
+  chatFontSize: (() => {
+    const saved = read(KEYS.chatFontSize)
+    return saved === 'small' || saved === 'large' || saved === 'extraLarge' ? saved : 'default'
+  })(),
 }))
+
+export const setChatFontSize = (chatFontSize: ChatFontSize) => {
+  write(KEYS.chatFontSize, chatFontSize)
+  useSettings.setState({ chatFontSize })
+}
+
+type ChatPreferences = Pick<Settings, 'thinking' | 'thinkingEffort' | 'search'>
+export const useChatPreferences = create(() => new Map<string | null, Partial<ChatPreferences>>())
+
+export const setChatPreferences = (id: string | null, patch: Partial<ChatPreferences>) =>
+  useChatPreferences.setState((current) => new Map(current).set(id, { ...current.get(id), ...patch }), true)
+
+export const clearChatPreferences = (id: string | null) => {
+  const next = new Map(useChatPreferences.getState())
+  if (next.delete(id)) {useChatPreferences.setState(next, true)}
+}
+
+export const moveChatPreferences = (id: string) => {
+  const next = new Map(useChatPreferences.getState())
+  const draft = next.get(null)
+  if (draft) {
+    next.delete(null)
+    next.set(id, draft)
+    useChatPreferences.setState(next, true)
+  }
+}
+
+export const getChatPreferences = (id: string | null): ChatPreferences => ({
+  ...useSettings.getState(), ...useChatPreferences.getState().get(id),
+})
 
 export const setLocale = (locale: Locale) => {
   write(KEYS.locale, locale)

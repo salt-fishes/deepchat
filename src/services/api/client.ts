@@ -1,6 +1,7 @@
 import { translate, type TranslationMessage } from '../../i18n/index.js'
 import { readMessageEvent } from './parseEvent.js'
 import { readServerSentEvents } from './sse.js'
+import { recordChatUsage } from '../usage.js'
 import type {
   ApiErrorBody,
   CreateMessageRequest,
@@ -142,6 +143,30 @@ const hasFile = (body: CreateMessageRequest) =>
  * ping、保活注释与无法解析的内容不产出；中止请求时抛出 signal 的 AbortError。
  */
 export async function* streamMessage(
+  apiKey: string,
+  body: CreateMessageRequest,
+  signal: AbortSignal
+): AsyncGenerator<MessageStreamEvent> {
+  if (signal.aborted) {throw signal.reason}
+  const started = new Date()
+  let input: number | undefined
+  let output: number | undefined
+  try {
+    for await (const event of readMessageStream(apiKey, body, signal)) {
+      const usage = event.type === 'message_start' ? event.message.usage :
+        event.type === 'message_delta' ? event.usage : undefined
+      if (usage) {
+        input = usage.input_tokens + usage.cache_creation_input_tokens + usage.cache_read_input_tokens
+        if (event.type === 'message_delta') {output = usage.output_tokens}
+      }
+      yield event
+    }
+  } finally {
+    void recordChatUsage(started, input, output).catch(() => {})
+  }
+}
+
+async function* readMessageStream(
   apiKey: string,
   body: CreateMessageRequest,
   signal: AbortSignal

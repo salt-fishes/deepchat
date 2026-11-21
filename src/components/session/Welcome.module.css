@@ -47,6 +47,11 @@
 @media not all and (min-width: 768px) {
   .container {
     flex-direction: column;
+    background: radial-gradient(
+      ellipse 64% 42% at 50% 47%,
+      color-mix(in srgb, var(--dsw-alias-button-ghost-active-fill) 52%, transparent),
+      transparent
+    );
   }
 
   .welcome {
@@ -56,12 +61,26 @@
     max-width: none;
     margin: 0;
     /* 系统安全区由外层 frame 或原生窗口处理，这里只保留输入区的设计留白。 */
-    padding: 0 16px 32px;
+    padding: 0 14px 22px;
   }
 
   .greeting {
-    flex-shrink: 0;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    gap: 16px;
     margin: auto 0;
+    padding-inline: 8px;
+    font-size: clamp(19px, 5.2vw, 25px);
+    line-height: 1.4;
+    font-weight: 650;
+    overflow: hidden;
   }
 
+  .mark {
+    flex-shrink: 0;
+    border-radius: 14px;
+    background: var(--dsw-alias-button-ghost-active-fill);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--dsw-alias-brand-text) 14%, transparent);
+  }
 }

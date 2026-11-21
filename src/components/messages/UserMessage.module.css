@@ -47,7 +47,7 @@
   box-sizing: border-box;
   padding: 10px 16px;
   border-radius: 22px;
-  font-size: 16px;
+  font-size: calc(16px + var(--chat-font-offset, 0px));
   line-height: 24px;
   color: var(--dsw-alias-label-primary);
   background-color: var(--dsw-specific-bubble);

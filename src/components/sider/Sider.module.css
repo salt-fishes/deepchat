@@ -92,16 +92,15 @@
   padding: 0 2px;
   overflow-y: auto;
   scrollbar-color: var(--scroll-color) transparent;
+  overflow-anchor: none;
 }
 
 .section {
   position: relative;
-  margin-top: 16px;
-  padding-top: 4px;
+}
 
-  &:first-child {
-    margin-top: 0;
-  }
+.section + .section {
+  padding-top: 20px;
 }
 
 .sectionHeader {
@@ -262,8 +261,8 @@
   width: var(--sider-width, 83vw);
   padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
-  /* 保底 24px：手势条避让不依赖安全区变量（变量失效的 ROM 上 Settings 行不贴底） */
-  padding-bottom: max(24px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  /* 留出底部呼吸空间；安全区更大时以系统值为准。 */
+  padding-bottom: max(12px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   /* 历史记录页与背景同色：聊天卡片叠在其上（圆角与阴影在 .main 一侧） */
   background-color: var(--dsw-alias-bg-base);
   overflow: hidden;
@@ -292,18 +291,27 @@
 .mobile {
   width: 100%;
   max-width: none;
-  padding-top: 12px;
+  padding: 13px 20px 0 16px;
   border-right: none;
+  background: var(--dsw-alias-bg-base);
   touch-action: pan-y pinch-zoom;
 
   .list {
     touch-action: pan-y pinch-zoom;
+    scrollbar-width: none;
   }
 
   /* 官方布局：顶部直接是搜索框，高度加大 */
   .searchBox {
-    height: 46px;
-    margin: 0 2px 12px;
+    height: 47px;
+    margin: 0 0 12px;
+    padding: 0 14px;
+    gap: 9px;
+  }
+
+  .searchIcon svg {
+    width: 19px;
+    height: 19px;
   }
 
   .searchInput {
@@ -311,27 +319,61 @@
   }
 
   .listWrap {
-    margin-top: 8px;
+    margin-top: 4px;
+  }
+
+  .section + .section {
+    padding-top: 12px;
   }
 
   .sectionHeader {
-    padding: 4px 10px 3px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 28px;
+    padding: 0 3px 0 6px;
     font-size: 14px;
     line-height: 22px;
+    background-color: var(--dsw-alias-bg-base);
+
+    button[aria-pressed='true'] {
+      color: var(--dsw-alias-brand-text);
+      background: var(--dsw-alias-button-ghost-active-fill);
+    }
   }
 
   .bottom {
     height: auto;
-    padding: 12px 0;
+    padding: 6px 0 2px;
   }
 
   .settings {
-    padding: 9px 10px;
+    justify-content: space-between;
+    padding: 7px 5px 7px 0;
+  }
+
+  .account {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .avatar {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--dsw-alias-button-ghost-active-fill);
+    color: var(--dsw-alias-brand-text);
+    font-size: 15px;
+    font-weight: 650;
   }
 
   .settingsIcon {
-    width: auto;
-    height: auto;
+    width: 32px;
+    height: 32px;
 
     svg {
       width: 20px;

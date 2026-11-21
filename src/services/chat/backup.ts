@@ -3,6 +3,8 @@ import * as db from './db.js'
 import { replaceHistory, useChatStore } from './store.js'
 import type { ArchiveSource } from './history/zipReader.js'
 import type { Session } from './types.js'
+import { getNativeImportStatus, savesHistoryNatively } from './history/saveBackup.js'
+import { BackupError } from './history/errors.js'
 
 export { BackupError } from './history/errors.js'
 
@@ -67,6 +69,13 @@ export const exportHistory = (report?: ReportProgress): Promise<{ name: string; 
  */
 export const importHistory = (file: ArchiveSource, report?: ReportProgress): Promise<number> =>
   enqueueBackup(async () => {
+    const start = file.startNativeImport
+    if (start) {
+      return replaceHistory(async () => {
+        const { id } = await start()
+        await waitForNativeImport(id, report)
+      }, true)
+    }
     const { checkArchiveFormat, importArchive } = await import('./history/importArchive.js')
     const archive = await checkArchiveFormat(file)
     report?.({ phase: 'preparing' })
@@ -77,6 +86,36 @@ export const importHistory = (file: ArchiveSource, report?: ReportProgress): Pro
       )
     })
   })
+
+const waitForNativeImport = async (id: string, report?: ReportProgress) => {
+  for (;;) {
+    const status = await getNativeImportStatus()
+    if (status.state === 'idle' || status.id !== id) {
+      throw new BackupError('historyImportFailed')
+    }
+    if (status.state === 'success') {
+      return
+    }
+    if (status.state === 'failure') {
+      throw new BackupError(status.key)
+    }
+    report?.(status.phase === 'reading' ? { phase: 'reading', percent: status.percent } : { phase: status.phase })
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 750))
+  }
+}
+
+let resumed: Promise<void> | undefined
+
+/** Reattach after Android recreates the activity while the service is still running. */
+export const resumeNativeImport = () => resumed ??= (async () => {
+  if (!savesHistoryNatively()) {
+    return
+  }
+  const status = await getNativeImportStatus()
+  if (status.state === 'running') {
+    await enqueueBackup(() => replaceHistory(() => waitForNativeImport(status.id), true))
+  }
+})()
 
 /** 确认删除后调用：以空历史原子替换全部本地会话与附件，保留 API Key 和其他设置。 */
 export const clearHistory = (): Promise<void> =>

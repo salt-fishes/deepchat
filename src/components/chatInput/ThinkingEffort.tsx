@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { useAnchoredPosition, useDismiss } from '../base/anchored.js'
 import { IconCheckOutline16, IconChevronDownOutline14 } from '../base/icons.js'
 import { registerOverlayToken } from '../base/Modal.js'
-import { setThinkingEffort, useSettings, type ThinkingEffort } from '../../services/settings.js'
+import { setChatPreferences, useChatPreferences, useSettings, type ThinkingEffort } from '../../services/settings.js'
 import { useTranslate } from '../../i18n/index.js'
 import selectStyles from '../base/Select.module.css'
 import styles from './ThinkingEffort.module.css'
@@ -21,9 +21,10 @@ const EFFORTS: {
 ]
 
 /** 深度思考药丸右侧的强度箭头：点击弹出向上展开的三档菜单 */
-export const ThinkingEffortTrigger = () => {
+export const ThinkingEffortTrigger = ({ sessionId }: { sessionId: string | null }) => {
   const t = useTranslate()
-  const effort = useSettings((state) => state.thinkingEffort)
+  const override = useChatPreferences((state) => state.get(sessionId)?.thinkingEffort)
+  const effort = useSettings((state) => override ?? state.thinkingEffort)
   const [open, setOpen] = useState(false)
   const menuId = useId()
   const { anchorRef, floatingRef, position } = useAnchoredPosition<
@@ -69,7 +70,7 @@ export const ThinkingEffortTrigger = () => {
                   className={clsx(selectStyles.option, styles.option)}
                   onClick={() => {
                     setOpen(false)
-                    setThinkingEffort(option.value)
+                    setChatPreferences(sessionId, { thinkingEffort: option.value })
                   }}
                 >
                   <span className={styles.optionText}>

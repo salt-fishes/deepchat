@@ -12,10 +12,12 @@ import styles from './SessionItem.module.css'
 export const SessionItem = memo(function SessionItem({
   session,
   active,
+  hideActions,
   onDelete,
 }: {
   session: SessionSummary
   active: boolean
+  hideActions: boolean
   onDelete: () => void
 }) {
   const t = useTranslate()
@@ -56,29 +58,35 @@ export const SessionItem = memo(function SessionItem({
       }}
     >
       <div className={styles.title}>{displayTitle}</div>
-      <div className={styles.action} onClick={(event) => event.stopPropagation()}>
-        <Menu
-          options={[
-            {
-              key: 'rename',
-              label: t('sessionItemMenuRenameOption'),
-              icon: <IconEditOutline16 />,
-              onSelect: () => setEditing(true),
-            },
-            {
-              key: 'delete',
-              label: t('delete'),
-              icon: <IconTrashOutline16 />,
-              danger: true,
-              onSelect: onDelete,
-            },
-          ]}
-        >
-          {({ toggle }) => (
-            <IconButton icon={<IconEllipsisOutline16 />} aria-label={t('more')} onClick={toggle} />
-          )}
-        </Menu>
-      </div>
+      {!hideActions ? (
+        <div className={styles.action} onClick={(event) => event.stopPropagation()}>
+          <Menu
+            options={[
+              {
+                key: 'rename',
+                label: t('sessionItemMenuRenameOption'),
+                icon: <IconEditOutline16 />,
+                onSelect: () => setEditing(true),
+              },
+              {
+                key: 'delete',
+                label: t('delete'),
+                icon: <IconTrashOutline16 />,
+                danger: true,
+                onSelect: onDelete,
+              },
+            ]}
+          >
+            {({ toggle }) => (
+              <IconButton
+                icon={<IconEllipsisOutline16 />}
+                aria-label={t('more')}
+                onClick={toggle}
+              />
+            )}
+          </Menu>
+        </div>
+      ) : null}
     </div>
   )
 })

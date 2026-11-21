@@ -3,6 +3,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { toSessionSummary, type Session, type SessionSummary } from './types.js'
 import type { WcdbItem, WcdbRef } from './wcdb.js'
 import * as wcdb from './wcdb.js'
+import { serviceBridge } from './history/serviceBridge.js'
 
 /** IndexedDB 存储结构版本；仅 Web 端使用。 */
 const DB_VERSION = 11
@@ -257,6 +258,7 @@ const KIND = {
   summary: 'm',
   file: 'f',
   stagingSession: 'ss',
+  stagingSummary: 'ms',
   stagingFile: 'fs',
 } as const
 
@@ -274,14 +276,16 @@ const parseSession = (item: WcdbItem): Session | null => {
   }
 }
 
-const wcdbLoadSessionSummaries = async (): Promise<SessionSummary[]> => {
+const wcdbReadSummaries = async (kind: string): Promise<SessionSummary[]> => {
   await ensureReady()
-  const items = await wcdb.getAll(KIND.summary)
+  const items = await wcdb.getAll(kind)
   return items
     .map((item) => (item.json ? (JSON.parse(item.json) as StoredSessionSummary) : null))
     .filter((summary): summary is StoredSessionSummary => Boolean(summary))
     .map(toSessionSummary)
 }
+
+const wcdbLoadSessionSummaries = () => wcdbReadSummaries(KIND.summary)
 
 const wcdbLoadSession = async (id: string): Promise<Session | undefined> => {
   await ensureReady()
@@ -349,17 +353,16 @@ const wcdbLoadFile = async (id: string): Promise<Blob | undefined> => {
 
 const wcdbClearStaging = async (): Promise<void> => {
   await ensureReady()
-  await wcdb.clear([KIND.stagingSession, KIND.stagingFile])
+  await wcdb.clear([KIND.stagingSession, KIND.stagingSummary, KIND.stagingFile])
 }
 
 const wcdbAddStagingSessions = async (sessions: Session[]): Promise<void> => {
   await ensureReady()
   await wcdb.put(
-    sessions.map((session) => ({
-      kind: KIND.stagingSession,
-      id: session.id,
-      json: JSON.stringify(session),
-    }))
+    sessions.flatMap((session) => [
+      { kind: KIND.stagingSession, id: session.id, json: JSON.stringify(session) },
+      { kind: KIND.stagingSummary, id: session.id, json: JSON.stringify(storedSummary(session)) },
+    ])
   )
 }
 
@@ -373,67 +376,49 @@ const wcdbUpdateStagingFileTypes = async (types: ReadonlyMap<string, string>): P
   if (!Array.from(types.values()).some(Boolean)) {
     return
   }
-  const items = await wcdb.getAll(KIND.stagingSession)
-  const updated: WcdbItem[] = []
-  for (const item of items) {
-    const session = parseSession(item)
-    if (!session) {
-      continue
+  let after = ''
+  for (;;) {
+    const page = await wcdb.getStagingSessionPage(after)
+    if (page.length === 0) {
+      return
     }
-    let changed = false
-    for (const message of session.messages) {
-      if (message.role !== 'user') {
+    const updated: WcdbItem[] = []
+    for (const item of page) {
+      const session = parseSession(item)
+      if (!session) {
         continue
       }
-      for (const file of message.files) {
-        const type = types.get(file.id) ?? ''
-        if (file.mimeType !== type) {
-          file.mimeType = type
-          changed = true
+      let changed = false
+      for (const message of session.messages) {
+        if (message.role !== 'user') {
+          continue
+        }
+        for (const file of message.files) {
+          const type = types.get(file.id) ?? ''
+          if (file.mimeType !== type) {
+            file.mimeType = type
+            changed = true
+          }
         }
       }
+      if (changed) {
+        updated.push({ kind: KIND.stagingSession, id: item.id, json: JSON.stringify(session) })
+      }
     }
-    if (changed) {
-      updated.push({ kind: KIND.stagingSession, id: item.id, json: JSON.stringify(session) })
-    }
+    await wcdb.put(updated)
+    after = page[page.length - 1].id
   }
-  await wcdb.put(updated)
 }
 
 const wcdbCommitStaging = async (): Promise<SessionSummary[]> => {
-  await ensureReady()
-  const [sessions, files] = await Promise.all([
-    wcdb.getAll(KIND.stagingSession),
-    wcdb.getAll(KIND.stagingFile),
-  ])
-  const items: WcdbItem[] = []
-  const summaries: SessionSummary[] = []
-  for (const item of sessions) {
-    if (!item.json) {
-      continue
-    }
-    const summary = storedSummary(JSON.parse(item.json) as Session)
-    items.push({ kind: KIND.session, id: item.id, json: item.json })
-    items.push({ kind: KIND.summary, id: item.id, json: JSON.stringify(summary) })
-    summaries.push(toSessionSummary(summary))
-  }
-  for (const item of files) {
-    items.push({ kind: KIND.file, id: item.id, blob: item.blob })
-  }
-  await wcdb.commit(
-    [KIND.session, KIND.summary, KIND.file],
-    items,
-    [
-      ...sessions.map((item) => ({ kind: KIND.stagingSession, id: item.id })),
-      ...files.map((item) => ({ kind: KIND.stagingFile, id: item.id })),
-    ]
-  )
+  const summaries = await wcdbReadSummaries(KIND.stagingSummary)
+  await wcdb.commitHistory()
   return summaries
 }
 
 /* ------------------------------ 平台分派 ------------------------------ */
 
-const native = Capacitor.getPlatform() === 'android'
+const native = Boolean(serviceBridge) || Capacitor.getPlatform() === 'android'
 
 export const loadSessionSummaries = native ? wcdbLoadSessionSummaries : idbLoadSessionSummaries
 export const loadSession = native ? wcdbLoadSession : idbLoadSession

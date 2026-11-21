@@ -9,6 +9,7 @@ export type ArchiveSource = {
   size: number
   read: (start: number, length: number) => Promise<Uint8Array>
   close?: () => Promise<void>
+  startNativeImport?: () => Promise<{ id: string }>
 }
 
 export const archiveFromFile = (file: File): ArchiveSource => ({

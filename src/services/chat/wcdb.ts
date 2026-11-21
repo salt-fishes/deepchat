@@ -1,5 +1,6 @@
 import { registerPlugin } from '@capacitor/core'
 import type { StoredFile } from './db.js'
+import { serviceBridge, serviceCall } from './history/serviceBridge.js'
 
 export type WcdbItem = { kind: string; id: string; json?: string; blob?: string }
 export type WcdbRef = { kind: string; id: string }
@@ -7,18 +8,26 @@ export type WcdbRef = { kind: string; id: string }
 type WcdbStoragePlugin = {
   initialize(): Promise<void>
   getAll(options: { kind: string }): Promise<{ items: WcdbItem[] }>
+  getStagingSessionPage(options: { after: string }): Promise<{ items: WcdbItem[] }>
   get(options: { kind: string; id: string }): Promise<{ found: boolean; item?: WcdbItem }>
   put(options: { items: WcdbItem[] }): Promise<void>
   remove(options: { keys: WcdbRef[] }): Promise<void>
-  commit(options: {
-    clearKinds: string[]
-    items: WcdbItem[]
-    stagingKeys: WcdbRef[]
-  }): Promise<void>
+  commitHistory(): Promise<void>
   clear(options: { kinds: string[] }): Promise<void>
 }
 
-const WcdbStorage = registerPlugin<WcdbStoragePlugin>('WcdbStorage')
+const WcdbStorage = serviceBridge
+  ? {
+      initialize: async () => { serviceCall('initialize') },
+      getAll: async (options) => serviceCall('getAll', options),
+      getStagingSessionPage: async (options) => serviceCall('getStagingSessionPage', options),
+      put: async (options) => serviceCall('put', options),
+      commitHistory: async () => serviceCall('commitHistory'),
+      clear: async (options) => serviceCall('clear', options),
+      get: async () => { throw new Error('Unavailable during background import') },
+      remove: async () => { throw new Error('Unavailable during background import') },
+    } satisfies WcdbStoragePlugin
+  : registerPlugin<WcdbStoragePlugin>('WcdbStorage')
 
 let pending: Promise<void> | null = null
 
@@ -56,13 +65,14 @@ export const remove = async (keys: WcdbRef[]): Promise<void> => {
   await WcdbStorage.remove({ keys })
 }
 
-export const commit = async (
-  clearKinds: string[],
-  items: WcdbItem[],
-  stagingKeys: WcdbRef[]
-): Promise<void> => {
+export const getStagingSessionPage = async (after: string): Promise<WcdbItem[]> => {
   await ready()
-  await WcdbStorage.commit({ clearKinds, items, stagingKeys })
+  return (await WcdbStorage.getStagingSessionPage({ after })).items
+}
+
+export const commitHistory = async (): Promise<void> => {
+  await ready()
+  await WcdbStorage.commitHistory()
 }
 
 export const clear = async (kinds: string[]): Promise<void> => {

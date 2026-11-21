@@ -29,7 +29,7 @@ export const createConfig = ({
   devServer,
 }: ConfigOptions = {}): Configuration => ({
   mode: dev ? 'development' : 'production',
-  entry: './src/main.tsx',
+  entry: { main: './src/main.tsx', 'history-import': './src/services/chat/history/serviceEntry.ts' },
   output: {
     path: path.resolve(root, 'dist'),
     // 运行时按当前脚本地址推导资源路径，file:// 下异步 chunk、字体都按相对位置加载
@@ -77,8 +77,15 @@ export const createConfig = ({
     // 经典 defer 脚本支持 file:// 页面的资源加载
     new rspack.HtmlRspackPlugin({
       template: './src/index.html',
+      chunks: ['main'],
       scriptLoading: 'defer',
       meta: { 'application-version': version },
+    }),
+    new rspack.HtmlRspackPlugin({
+      filename: 'history-import.html',
+      template: './src/services/chat/history/service.html',
+      chunks: ['history-import'],
+      scriptLoading: 'defer',
     }),
     new rspack.DefinePlugin({ __API_ORIGIN__: JSON.stringify(apiOrigin) }),
     new rspack.CopyRspackPlugin({

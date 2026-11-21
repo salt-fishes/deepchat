@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useIsMobile } from '../../app/viewport.js'
 import {
   buildMessageVersions,
@@ -8,6 +8,7 @@ import {
 import { selectMessageVersion, useChatStore } from '../../services/chat/store.js'
 import type { Session } from '../../services/chat/types.js'
 import { closeSearchPanel } from '../search/searchPanelState.js'
+import { chatFontOffset, useSettings } from '../../services/settings.js'
 import { AssistantMessage } from './AssistantMessage.js'
 import { ScrollToBottomContext } from './scrollContext.js'
 import { UserMessage } from './UserMessage.js'
@@ -43,6 +44,7 @@ export const MessageList = ({
   footer: React.ReactNode
 }) => {
   const isMobile = useIsMobile()
+  const fontOffset = useSettings((s) => chatFontOffset[s.chatFontSize])
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const stickyRef = useRef(true)
@@ -177,7 +179,7 @@ export const MessageList = ({
     <ScrollToBottomContext.Provider value={scrollToBottom}>
       <div ref={isMobile ? undefined : scrollRef} className={styles.container}>
         <div ref={isMobile ? scrollRef : undefined} className={styles.scroll}>
-          <div ref={contentRef} className={styles.column}>
+          <div ref={contentRef} className={styles.column} style={{ '--chat-font-offset': `${fontOffset}px` } as CSSProperties}>
             {messages.map((message, index) =>
               message.role === 'user' ? (
                 <UserMessage

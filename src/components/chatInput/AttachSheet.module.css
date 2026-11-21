@@ -31,8 +31,81 @@
 .sheetBody {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 4px 12px 12px;
+  gap: 11px;
+  padding: 16px 0 2px;
+}
+
+.sheetBody .photo {
+  width: clamp(62px, 20vw, 84px);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 13px;
+  border: 1px solid var(--dsw-alias-border-l2);
+}
+
+.sheetBody .photo[aria-pressed='true'] {
+  border-color: var(--dsw-alias-brand-text);
+}
+
+.photoCheck {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+  color: white;
+  transition: background-color var(--motion-popup) var(--motion-ease-enter),
+    transform var(--motion-feedback) var(--motion-ease-enter);
+}
+
+.photo[aria-pressed='true'] .photoCheck {
+  background: var(--dsw-alias-button-primary-fill);
+}
+
+.photo:active .photoCheck {
+  transform: scale(0.85);
+}
+
+.sheetBody .cards {
+  gap: 8px;
+  padding-inline: 2px;
+}
+
+.sheetBody .card {
+  height: clamp(58px, 10dvh, 78px);
+  gap: 6px;
+  border-radius: 15px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: color-mix(in srgb, var(--dsw-alias-button-ghost-active-fill) 42%, var(--dsw-alias-interactive-bg-hover));
+  font-size: 14px;
+
+  svg {
+    width: 21px;
+    height: 21px;
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+@media (max-height: 470px) {
+  .sheetBody {
+    gap: 6px;
+    padding-top: 8px;
+  }
+
+  .sheetBody .photo {
+    width: 48px;
+  }
+
+  .sheetBody .card {
+    height: 43px;
+    flex-direction: row;
+  }
 }
 
 /* 最近图片行 */
@@ -93,7 +166,8 @@
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s var(--ds-ease-in-out);
+  transition: background-color var(--motion-popup) var(--motion-ease-enter),
+    transform var(--motion-feedback) var(--motion-ease-enter);
 }
 
 .card:hover {

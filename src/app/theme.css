@@ -21,6 +21,8 @@ body {
   --motion-popup: 160ms;
   --motion-panel: 220ms;
   --motion-page: 280ms;
+  --motion-content-enter: app-content-enter;
+  --motion-pop-enter: app-pop-enter;
 
   --ds-font-family-code:
     Menlo, Monaco, Consolas, 'Cascadia Mono', 'Ubuntu Mono', 'DejaVu Sans Mono', 'Liberation Mono',

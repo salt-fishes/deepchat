@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="history_import_channel">聊天记录导入</string>
+    <string name="history_import_opening">正在打开聊天备份…</string>
+    <string name="history_import_reading">正在读取备份 · %1$d%%</string>
+    <string name="history_import_replacing">正在保存聊天记录…</string>
+    <string name="history_import_success">已导入 %1$d 条会话</string>
+    <string name="history_import_failure">未能导入聊天记录</string>
+</resources>

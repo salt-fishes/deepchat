@@ -4,12 +4,10 @@ import { createPortal } from 'react-dom'
 import {
   IconArrowLeftOutline16,
   IconDarkOutline16,
-  IconDataOutline16,
   IconDownloadOutline16,
   IconFollowsystemOutline16,
   IconLightOutline16,
   IconLocationOutline16,
-  IconSettingsOutline16,
   IconUploadOutline14,
 } from '../base/icons.js'
 import {
@@ -41,12 +39,13 @@ import { Modal, registerOverlayToken } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import { showToast } from '../base/toastState.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
-import { closeSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
+import { closeSettings, navigateSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
+import { SettingsHome, SettingsGroup, SettingsRow, settingsTitles } from './SettingsHome.js'
+import { ApiActions, FontSettings, PersonalizationDefaults, ReadAloudPreview, UpdateSettings, UsageSettings, SettingsInfo } from './SettingsExtras.js'
 import styles from './Settings.module.css'
 
 /**
- * 设置界面：分「通用设置」（主题、语言、朗读音色、位置）与「数据管理」（API Key、导入、导出、删除）。
- * 移动端为独立二级页面（右侧滑入覆盖全屏、返回键关闭）；桌面端为居中弹窗、左侧导航
+ * 移动端全屏设置，桌面端使用同样的分组与子页面。
  */
 export const SettingsDialog = () => {
   const open = useSettingsDialog((state) => state.open)
@@ -103,26 +102,31 @@ const SettingsPage = ({
   title,
   closing,
   surfaceRef,
+  onBack,
   children,
 }: {
   title: string
   closing: boolean
   surfaceRef: RefObject<HTMLDivElement>
+  onBack: () => void
   children: ReactNode
 }) => {
   const t = useTranslate()
   // 挂载期间（含滑出阶段）占用返回键；确认弹窗后注册，栈顶优先关闭
-  useEffect(() => registerOverlayToken(closeSettings), [])
+  const backRef = useRef(onBack)
+  backRef.current = onBack
+  useEffect(() => registerOverlayToken(() => backRef.current()), [])
   return createPortal(
-    <div ref={surfaceRef} className={clsx(styles.page, closing && styles.pageClosing)}>
+    <div ref={surfaceRef} role="dialog" aria-modal="true" aria-label={title} className={clsx(styles.page, closing && styles.pageClosing)}>
       <div className={styles.pageTop}>
         <IconButton
           size="m"
           tone="primary"
+          className={styles.pageBack}
           icon={<IconArrowLeftOutline16 />}
           tooltip={t('back')}
           aria-label={t('back')}
-          onClick={closeSettings}
+          onClick={onBack}
         />
         <div className={styles.pageTitle}>{title}</div>
       </div>
@@ -132,15 +136,6 @@ const SettingsPage = ({
   )
 }
 
-const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode }[] = [
-  {
-    value: 'general',
-    label: 'settingDialogAsideGeneralOptionLabel',
-    icon: <IconSettingsOutline16 />,
-  },
-  { value: 'data', label: 'settingDialogAsideDataOptionLabel', icon: <IconDataOutline16 /> },
-]
-
 const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, historyExport }: {
   closing: boolean
   isMobile: boolean
@@ -149,43 +144,25 @@ const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, history
   historyExport: ReturnType<typeof useHistoryExport>
 }) => {
   const t = useTranslate()
-  // 打开时按调用方指定的分组选中，之后在界面内切换
-  const [section, setSection] = useState(() => useSettingsDialog.getState().section)
-  // 切换分组不丢失正在输入的 API Key 与导入状态
+  const section = useSettingsDialog((state) => state.section)
   const apiKeyEditor = useApiKeyEditor()
   const historyDelete = useHistoryDelete()
   const replacingHistory = useChatStore((state) => state.importingHistory)
   const historyBusy = historyImport.progress !== null || historyExport.progress !== null ||
     historyDelete.busy || replacingHistory
-  const body = (
-    <>
-      <div role="tablist" className={styles.navigation}>
-        {sections.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={section === item.value}
-            className={clsx(styles.navItem, section === item.value && styles.navItemActive)}
-            onClick={() => setSection(item.value)}
-          >
-            {item.icon}
-            {t(item.label)}
-          </button>
-        ))}
-      </div>
-      <div role="tabpanel" className={styles.content}>
-        {section === 'general' ? (
-          <>
-            <ThemeSetting />
-            <CompactThinkingSetting />
-            <LocaleSetting />
-            <TtsVoiceSetting />
-            <LocationSetting />
-          </>
-        ) : (
-          <>
-            <ApiKeyField editor={apiKeyEditor} />
+  const back = () => {
+    if (historyDelete.busy) {return}
+    if (section === 'general') {closeSettings()}
+    else {navigateSettings(section === 'usage' ? 'data' : 'general')}
+  }
+  const title = t(settingsTitles[section])
+  const pages: Record<Exclude<SettingsSection, 'general'>, ReactNode> = {
+    api: <>
+      <ApiKeyField editor={apiKeyEditor} />
+      {isMobile ? <ApiKeyConfirm editor={apiKeyEditor} /> : null}
+      <ApiActions key={apiKeyEditor.apiKey} editing={apiKeyEditor.showInput || apiKeyEditor.form.verifying} />
+    </>,
+    data: <>
             <ImportHistory historyImport={historyImport} disabled={historyBusy} />
             <ExportHistory historyExport={historyExport} disabled={historyBusy} />
             <SettingCell
@@ -203,31 +180,41 @@ const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, history
                 </Button>
               }
             />
-            {isMobile ? <ApiKeyConfirm editor={apiKeyEditor} /> : null}
-          </>
-        )}
-      </div>
-    </>
+      <SettingsRow page="usage" />
+    </>,
+    language: <LocaleSetting />,
+    appearance: <ThemeSetting />,
+    font: <FontSettings />,
+    personalization: <><CompactThinkingSetting /><PersonalizationDefaults /><LocationSetting /></>,
+    voice: <><TtsVoiceSetting /><ReadAloudPreview /></>,
+    update: <UpdateSettings />,
+    terms: <SettingsInfo page="terms" />,
+    help: <SettingsInfo page="help" />,
+    usage: <UsageSettings />,
+  }
+  const body = (
+    <div key={section} className={styles.settingsScroll}>
+      {section === 'general' ? <SettingsHome /> : <SettingsGroup details>{pages[section]}</SettingsGroup>}
+    </div>
   )
   return (
     <>
       {isMobile ? (
-        <SettingsPage title={t('settings')} closing={closing} surfaceRef={surfaceRef}>
+        <SettingsPage title={title} closing={closing} surfaceRef={surfaceRef} onBack={back}>
           {body}
         </SettingsPage>
       ) : (
         <Modal
           overlayRef={surfaceRef}
           closing={closing}
-          title={t('settings')}
+          title={section === 'general' ? title : <span className={styles.desktopTitle}>
+            <IconButton icon={<IconArrowLeftOutline16 />} tone="primary" aria-label={t('back')} onClick={back} />
+            {title}
+          </span>}
           closable
           className={styles.dialog}
           mainClassName={styles.dialogMain}
-          onClose={() => {
-            if (!historyDelete.busy) {
-              closeSettings()
-            }
-          }}
+          onClose={back}
         >
           {body}
         </Modal>

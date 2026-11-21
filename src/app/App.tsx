@@ -31,6 +31,7 @@ import { MobileSider, Sider } from '../components/sider/Sider.js'
 import { closeMobileSider, useMobileSider } from '../components/sider/mobileSiderState.js'
 import { registerBackButton } from './backButton.js'
 import styles from './App.module.css'
+import { resumeNativeImport } from '../services/chat/backup.js'
 
 export const App = () => {
   const t = useTranslate()
@@ -87,7 +88,7 @@ export const App = () => {
   useEffect(closeMobileSider, [activeId, isMobile])
 
   useEffect(() => {
-    void initChat()
+    void resumeNativeImport().catch(() => {}).then(initChat)
     // 首次打开先在设置里输入 API Key
     ensureApiKey()
   }, [])

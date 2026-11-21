@@ -19,3 +19,8 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# WCDB PreparedStatement creates rows via Class.newInstance().
+-keep,allowobfuscation class com.deepchat.app.WcdbRecord {
+    public <init>();
+}

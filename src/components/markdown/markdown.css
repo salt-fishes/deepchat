@@ -1,4 +1,6 @@
 .ds-markdown {
+  --dsw-font-markdown-base: calc(16px + var(--chat-font-offset, 0px))/calc(28px + var(--chat-font-offset, 0px)) var(--dsw-font-family);
+  --dsw-font-markdown-base-strong: 600 var(--dsw-font-markdown-base);
   font: var(--dsw-font-markdown-base);
   color: var(--dsw-alias-label-primary);
 }

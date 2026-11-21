@@ -52,7 +52,7 @@ export const useDrawerGesture = ({
 
     const paint = (progress: number, width: number) => {
       drawer.style.transform = `translateX(${(progress - 1) * 100}%)`
-      main.style.transform = `translateX(${progress * width}px)`
+      main.style.transform = `translateX(${progress * width}px) scaleY(${1 - progress * 0.015})`
     }
 
     const clearTransforms = () => {
