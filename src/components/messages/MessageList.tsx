@@ -9,6 +9,8 @@ import { selectMessageVersion, useChatStore } from '../../services/chat/store.js
 import type { Session } from '../../services/chat/types.js'
 import { closeSearchPanel } from '../search/searchPanelState.js'
 import { chatFontOffset, useSettings } from '../../services/settings.js'
+import { IconChevronDownOutline14 } from '../base/icons.js'
+import { useTranslate } from '../../i18n/index.js'
 import { AssistantMessage } from './AssistantMessage.js'
 import { ScrollToBottomContext } from './scrollContext.js'
 import { UserMessage } from './UserMessage.js'
@@ -44,6 +46,8 @@ export const MessageList = ({
   footer: React.ReactNode
 }) => {
   const isMobile = useIsMobile()
+  const t = useTranslate()
+  const [showLatest, setShowLatest] = useState(false)
   const fontOffset = useSettings((s) => chatFontOffset[s.chatFontSize])
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -62,6 +66,8 @@ export const MessageList = ({
     setPreviousVersions(versions)
   }
   const lastMessageId = messages.at(-1)?.id
+  const lastMessage = messages.at(-1)
+  const previousStream = useRef<{ sessionId: string; messageId?: string; streaming: boolean }>()
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
     if (el && stickyRef.current) {
@@ -123,6 +129,28 @@ export const MessageList = ({
     scrollToBottom()
   }, [session.id, lastMessageId, scrollToBottom])
 
+  useLayoutEffect(() => {
+    const previous = previousStream.current
+    previousStream.current = { sessionId: session.id, messageId: lastMessageId, streaming }
+    if (!previous?.streaming || streaming || previous.sessionId !== session.id ||
+        previous.messageId !== lastMessageId || !lastMessageId || !stickyRef.current ||
+        lastMessage?.role !== 'assistant' || lastMessage.status !== 'done') {
+      return
+    }
+    const scroll = scrollRef.current
+    const reply = contentRef.current?.querySelector<HTMLElement>(`[data-reply-id="${CSS.escape(lastMessageId)}"] .ds-assistant-message-main-content`)
+    if (!scroll || !reply) {
+      return
+    }
+    const target = scroll.scrollTop + reply.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 8
+    if (target < scroll.scrollTop - STICKY_THRESHOLD) {
+      stickyRef.current = false
+      scroll.scrollTop = target
+      scrollTopRef.current = scroll.scrollTop
+      setShowLatest(true)
+    }
+  }, [session.id, lastMessage, lastMessageId, streaming])
+
   useEffect(closeSearchPanel, [session.id, lastMessageId])
 
   const selectVersion = useCallback(
@@ -161,10 +189,11 @@ export const MessageList = ({
     }
     const onScroll = () => {
       const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < STICKY_THRESHOLD
+      setShowLatest(!nearBottom)
       // 仅在用户向上滚动时停止跟随底部，布局或内容增高时保持跟随状态。
       if (nearBottom) {
         stickyRef.current = true
-      } else if (el.scrollTop < scrollTopRef.current) {
+      } else if (el.scrollTop < scrollTopRef.current - 1) {
         stickyRef.current = false
       }
       scrollTopRef.current = el.scrollTop
@@ -210,7 +239,14 @@ export const MessageList = ({
             )}
           </div>
         </div>
-        {footer}
+        <div className={styles.footerAnchor}>
+          {showLatest ? <button type="button" className={styles.jumpLatest} aria-label={t('jumpToLatest')} onClick={() => {
+            stickyRef.current = true
+            scrollToBottom()
+            setShowLatest(false)
+          }}><IconChevronDownOutline14 /></button> : null}
+          {footer}
+        </div>
       </div>
     </ScrollToBottomContext.Provider>
   )

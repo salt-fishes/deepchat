@@ -5,7 +5,7 @@ import { ApiError, verifyApiKey } from '../../services/api/client.js'
 import { checkLatestRelease, PROJECT_URL, readAppVersion, RELEASES_URL } from '../../services/releases.js'
 import { chatFontOffset, setApiKey, setChatFontSize, setSearch, setThinking, setThinkingEffort, useSettings } from '../../services/settings.js'
 import { describeReadAloudError, stopReadAloud, toggleReadAloud, useReadAloud } from '../../services/speech/readAloud.js'
-import { readChatUsage } from '../../services/usage.js'
+import { readChatUsage, subscribeChatUsage } from '../../services/usage.js'
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
@@ -59,7 +59,6 @@ export const ApiActions = ({ editing }: { editing: boolean }) => {
   const apiKey = useSettings((s) => s.apiKey)
   const [confirm, setConfirm] = useState(false)
   const test = useManualRequest<boolean>()
-  const balance = useManualRequest<Awaited<ReturnType<typeof getDeepSeekBalance>>>()
   return <>
     <Row label={t('settingsConnection')}>
       <Button variant="outlined" disabled={!apiKey || editing || test.busy} onClick={() => apiKey && test.run(async (signal) => {
@@ -68,8 +67,35 @@ export const ApiActions = ({ editing }: { editing: boolean }) => {
       })}>{t(test.busy ? 'settingsLoading' : 'settingsTest')}</Button>
     </Row>
     {test.error || test.value ? <p className={styles.detailText} role="status">{t(test.error ? apiErrorKey(test.error) : 'settingsConnected')}</p> : null}
+    <BalancePanel />
+    {apiKey ? <Row label={t('settingsClearKey')}>
+      <Button variant="dangerOutlined" disabled={editing} onClick={() => setConfirm(true)}>{t('delete')}</Button>
+    </Row> : null}
+    {confirm ? <Modal title={t('settingsClearKey')} onClose={() => setConfirm(false)} footer={<>
+      <Button variant="outlined" onClick={() => setConfirm(false)}>{t('cancel')}</Button>
+      <Button variant="danger" onClick={() => { setConfirm(false); setApiKey(null) }}>{t('delete')}</Button>
+    </>}>{t('settingsClearKeyHint')}</Modal> : null}
+  </>
+}
+
+const BalancePanel = () => {
+  const apiKey = useSettings((s) => s.apiKey)
+  return <BalanceDetails key={apiKey} apiKey={apiKey} />
+}
+
+const BalanceDetails = ({ apiKey }: { apiKey: string | null }) => {
+  const t = useTranslate()
+  const balance = useManualRequest<Awaited<ReturnType<typeof getDeepSeekBalance>>>()
+  const { run } = balance
+  const refresh = useCallback(() => {
+    if (apiKey) {
+      run((signal) => getDeepSeekBalance(apiKey, signal))
+    }
+  }, [apiKey, run])
+  useEffect(refresh, [refresh])
+  return <>
     <Row label={t('settingsBalance')}>
-      <Button variant="outlined" disabled={!apiKey || editing || balance.busy} onClick={() => apiKey && balance.run((signal) => getDeepSeekBalance(apiKey, signal))}>
+      <Button variant="outlined" disabled={!apiKey || balance.busy} onClick={refresh}>
         {t(balance.busy ? 'settingsLoading' : 'settingsRefresh')}
       </Button>
     </Row>
@@ -82,16 +108,8 @@ export const ApiActions = ({ editing }: { editing: boolean }) => {
           <dt>{t('settingsPaidBalance')}</dt><dd>{entry.topped_up_balance} {entry.currency}</dd>
           <dt>{t('settingsGiftBalance')}</dt><dd>{entry.granted_balance} {entry.currency}</dd>
         </dl>)}
-      </> : t(apiKey ? 'settingsBalanceHint' : 'settingsKeyRequired')}
-      <p><Link href="https://platform.deepseek.com/">{t('settingsPlatform')}</Link></p>
+      </> : t(apiKey ? 'settingsLoading' : 'settingsKeyRequired')}
     </div>
-    {apiKey ? <Row label={t('settingsClearKey')}>
-      <Button variant="dangerOutlined" disabled={editing} onClick={() => setConfirm(true)}>{t('delete')}</Button>
-    </Row> : null}
-    {confirm ? <Modal title={t('settingsClearKey')} onClose={() => setConfirm(false)} footer={<>
-      <Button variant="outlined" onClick={() => setConfirm(false)}>{t('cancel')}</Button>
-      <Button variant="danger" onClick={() => { setConfirm(false); setApiKey(null) }}>{t('delete')}</Button>
-    </>}>{t('settingsClearKeyHint')}</Modal> : null}
   </>
 }
 
@@ -181,32 +199,46 @@ export const UsageSettings = () => {
   const t = useTranslate()
   const locale = useSettings((s) => s.locale)
   const [days, setDays] = useState<1 | 7 | 30>(7)
-  const [result, setResult] = useState<{ days: number; totals?: Awaited<ReturnType<typeof readChatUsage>> }>()
-  const [refresh, setRefresh] = useState(0)
+  const [result, setResult] = useState<{ days: number; usage?: Awaited<ReturnType<typeof readChatUsage>> }>()
   useEffect(() => {
     let active = true
-    void readChatUsage(days).then((totals) => { if (active) {setResult({ days, totals })} })
-      .catch(() => { if (active) {setResult({ days })} })
-    return () => { active = false }
-  }, [days, refresh])
-  const totals = result?.days === days ? result.totals : undefined
+    let revision = 0
+    const refresh = () => {
+      const request = ++revision
+      void readChatUsage(days).then((usage) => { if (active && request === revision) {setResult({ days, usage })} })
+        .catch(() => { if (active && request === revision) {setResult({ days })} })
+    }
+    const unsubscribe = subscribeChatUsage(refresh)
+    refresh()
+    return () => { active = false; unsubscribe() }
+  }, [days])
+  const usage = result?.days === days ? result.usage : undefined
   const format = new Intl.NumberFormat(locale)
-  const token = (value: number, missing: number) => totals && missing > 0
-    ? missing === totals.requests ? t('settingsNotRecorded') : t('settingsPartialCount', { count: format.format(value), missing })
+  const token = (value: number, missing: number, requests: number) => missing > 0
+    ? missing === requests ? t('settingsNotRecorded') : t('settingsPartialCount', { count: format.format(value), missing })
     : format.format(value)
+  const metrics = (row: NonNullable<typeof usage>['totals']) => <dl className={styles.usageMetrics}>
+    <div><dt>{t('settingsRequests')}</dt><dd>{format.format(row.requests)}</dd></div>
+    <div><dt>{t('settingsInputTokens')}</dt><dd>{token(row.input, row.missingInput, row.requests)}</dd></div>
+    <div><dt>{t('settingsOutputTokens')}</dt><dd>{token(row.output, row.missingOutput, row.requests)}</dd></div>
+  </dl>
   return <>
-    <Row label={t('settingsUsage')}><Button variant="outlined" onClick={() => { setResult(undefined); setRefresh(refresh + 1) }}>{t('settingsRefresh')}</Button></Row>
-    <div className={styles.periods}>
+    <section className={styles.detailCard}><BalancePanel /></section>
+    <section className={styles.usageCard}>
+    <div className={styles.periods} role="group" aria-label={t('settingsUsage')}>
       {periods.map(([value, label]) => <Button key={value} variant={value === days ? 'primary' : 'outlined'} aria-pressed={value === days} onClick={() => setDays(value)}>{t(label)}</Button>)}
     </div>
     <div className={styles.detailText} aria-live="polite">
-      {totals ? <dl className={styles.metrics}>
-        <dt>{t('settingsRequests')}</dt><dd>{format.format(totals.requests)}</dd>
-        <dt>{t('settingsInputTokens')}</dt><dd>{token(totals.input, totals.missingInput)}</dd>
-        <dt>{t('settingsOutputTokens')}</dt><dd>{token(totals.output, totals.missingOutput)}</dd>
-      </dl> : t(result?.days === days ? 'settingsUsageFailed' : 'settingsLoading')}
+      {usage ? <>
+        {metrics(usage.totals)}
+        <h3>{t('settingsDailyUsage')}</h3>
+        {usage.daily.length ? usage.daily.map((row) => <div className={styles.usageDay} key={row.date}>
+          <time dateTime={row.date}>{row.date}</time>{metrics(row)}
+        </div>) : <p>{t('settingsNoUsage')}</p>}
+      </> : t(result?.days === days ? 'settingsUsageFailed' : 'settingsLoading')}
       <p>{t('settingsUsageHint')}</p>
     </div>
+    </section>
   </>
 }
 

@@ -1,4 +1,6 @@
 declare const styles: {
+  readonly selectionHeader: string;
+  readonly selectionActions: string;
   readonly "sider": string;
   readonly "top": string;
   readonly "appName": string;

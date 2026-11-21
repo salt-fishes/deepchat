@@ -76,7 +76,7 @@ export const AssistantMessage = memo(function AssistantMessage({
     return () => window.clearTimeout(timer)
   }, [streaming])
   return (
-    <div className={clsx(styles.message, entering && styles.entering)}>
+    <div className={clsx(styles.message, entering && styles.entering)} data-reply-id={message.id}>
       {refused ? null : (
         <ReplyArea
           message={message}

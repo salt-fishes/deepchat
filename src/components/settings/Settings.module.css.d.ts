@@ -6,6 +6,7 @@ declare const styles: {
   readonly pageMain: string;
   readonly pageBack: string;
   readonly settingsScroll: string;
+  readonly settingsTransition: string;
   readonly settingsGroup: string;
   readonly groupLabel: string;
   readonly settingsCard: string;
@@ -20,6 +21,9 @@ declare const styles: {
   readonly releaseNotes: string;
   readonly metrics: string;
   readonly periods: string;
+  readonly usageCard: string;
+  readonly usageMetrics: string;
+  readonly usageDay: string;
   readonly fontPreview: string;
   readonly switch: string;
   readonly "dialog": string;

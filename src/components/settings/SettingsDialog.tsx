@@ -145,6 +145,7 @@ const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, history
 }) => {
   const t = useTranslate()
   const section = useSettingsDialog((state) => state.section)
+  const direction = useSettingsDialog((state) => state.direction)
   const apiKeyEditor = useApiKeyEditor()
   const historyDelete = useHistoryDelete()
   const replacingHistory = useChatStore((state) => state.importingHistory)
@@ -153,7 +154,7 @@ const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, history
   const back = () => {
     if (historyDelete.busy) {return}
     if (section === 'general') {closeSettings()}
-    else {navigateSettings(section === 'usage' ? 'data' : 'general')}
+    else {navigateSettings(section === 'usage' ? 'data' : 'general', 'back')}
   }
   const title = t(settingsTitles[section])
   const pages: Record<Exclude<SettingsSection, 'general'>, ReactNode> = {
@@ -194,7 +195,9 @@ const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, history
   }
   const body = (
     <div key={section} className={styles.settingsScroll}>
-      {section === 'general' ? <SettingsHome /> : <SettingsGroup details>{pages[section]}</SettingsGroup>}
+      <div className={styles.settingsTransition} data-direction={direction ?? undefined}>
+        {section === 'general' ? <SettingsHome /> : section === 'usage' ? pages.usage : <SettingsGroup details>{pages[section]}</SettingsGroup>}
+      </div>
     </div>
   )
   return (

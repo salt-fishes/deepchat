@@ -86,6 +86,18 @@
   margin-top: 24px;
 }
 
+.selectionHeader, .selectionActions { display: flex; align-items: center; flex-shrink: 0; }
+.selectionHeader { min-height: 54px; justify-content: space-between; padding: 0 14px; font-size: 17px; }
+.selectionHeader > button { border-radius: 50%; background: var(--dsw-alias-interactive-bg-hover); }
+.selectionActions { border-top: 1px solid var(--dsw-alias-border-l2-darkmode-thin); min-height: 60px; }
+.selectionActions > button {
+  display: flex; flex: 1; align-items: center; justify-content: center; gap: 10px;
+  min-height: 42px; border: 0; background: none; color: var(--dsw-alias-label-primary);
+  font: inherit; cursor: pointer;
+}
+.selectionActions > button + button { border-inline-start: 1px solid var(--dsw-alias-border-l2-darkmode-thin); }
+.selectionActions > button:disabled { opacity: 0.45; cursor: default; }
+
 .list {
   height: 100%;
   margin: 0 -2px;

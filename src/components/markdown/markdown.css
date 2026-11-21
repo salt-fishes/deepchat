@@ -397,3 +397,9 @@
   color: var(--dsw-alias-label-secondary);
   font-size: 14px;
 }
+.ds-streaming-text { animation: ds-streaming-reveal 210ms ease-out both; }
+
+@keyframes ds-streaming-reveal {
+  from { opacity: 0.28; }
+  to { opacity: 1; }
+}

@@ -1,3 +1,11 @@
+export const IconPinOutline16 = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true"><path d="m8 15-5 6m3-9 6-2 3-6 5 5-6 3-2 6z" /></svg>
+)
+
+export const IconMultiSelect16 = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="5" cy="7" r="2.5" /><circle cx="5" cy="17" r="2.5" /><path d="M11 7h10m-10 10h10" /></svg>
+)
+
 export const IconCheckOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path

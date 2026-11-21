@@ -5,7 +5,10 @@ import {
   IconPanelLeftOutline16,
   IconSearchOutline16,
   IconSettingsOutline16,
-  IconEllipsisOutline16,
+  IconMultiSelect16,
+  IconCloseOutline16,
+  IconPinOutline16,
+  IconTrashOutline16,
   NewChatIcon,
 } from '../base/icons.js'
 import { setSiderCollapsed } from '../../services/settings.js'
@@ -14,12 +17,13 @@ import { newChat, removeSession, useChatStore } from '../../services/chat/store.
 import type { SessionSummary } from '../../services/chat/types.js'
 import { Button } from '../base/Button.js'
 import { IconButton } from '../base/IconButton.js'
-import { Modal } from '../base/Modal.js'
+import { Modal, registerOverlayToken } from '../base/Modal.js'
 import { showToast } from '../base/toastState.js'
 import { openSettings } from '../settings/settingsDialogState.js'
 import { openConversationSearch } from '../search/conversationSearchState.js'
 import { useMobileSider } from './mobileSiderState.js'
 import { SessionItem } from './SessionItem.js'
+import { setSessionPins, useSessionPins } from './sessionPins.js'
 import styles from './Sider.module.css'
 
 /**
@@ -33,8 +37,22 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const [now, setNow] = useState(Date.now)
   const [query, setQuery] = useState('')
   const [managing, setManaging] = useState(false)
-  const [deleting, setDeleting] = useState<SessionSummary | null>(null)
-const [deletePending, setDeletePending] = useState(false)
+  const [selection, setSelection] = useState<string[]>([])
+  const [deleting, setDeleting] = useState<SessionSummary[] | null>(null)
+  const [deletePending, setDeletePending] = useState(false)
+  const drawerOpen = useMobileSider((state) => state.open)
+  const pinIds = useSessionPins((state) => state.ids)
+  const pins = useMemo(() => new Set(pinIds), [pinIds])
+  const selectedSessions = sessions.filter(({ id }) => selection.includes(id))
+  const allPinned = selectedSessions.length > 0 && selectedSessions.every(({ id }) => pins.has(id))
+  const finishSelection = () => { setManaging(false); setSelection([]) }
+  useEffect(() => {
+    if (mobile && !drawerOpen) {
+      setManaging(false)
+      setSelection([])
+    }
+  }, [drawerOpen, mobile])
+  useEffect(() => managing ? registerOverlayToken(finishSelection) : undefined, [managing])
   const listRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ top: 0, height: 0 })
   const rowHeight = mobile ? 46 : 40
@@ -76,8 +94,11 @@ const [deletePending, setDeletePending] = useState(false)
     () =>
       filtered
         ? [{ key: 'search', label: '', sessions: filtered }]
-        : groupSessions(sessions, now, t),
-    [filtered, sessions, now, t]
+        : [
+          { key: 'pinned', label: t('pinnedChats'), sessions: sessions.filter(({ id }) => pins.has(id)) },
+          ...groupSessions(sessions.filter(({ id }) => !pins.has(id)), now, t),
+        ].filter((group) => group.sessions.length > 0),
+    [filtered, sessions, now, t, pins]
   )
 
   const virtualGroups = useMemo(() => {
@@ -131,7 +152,10 @@ const [deletePending, setDeletePending] = useState(false)
           />
         </div>
       ) : null}
-      {mobile ? (
+      {managing ? <div className={styles.selectionHeader}>
+        <strong>{t('selectChats')}</strong>
+        <IconButton icon={<IconCloseOutline16 />} aria-label={t('close')} onClick={finishSelection} />
+      </div> : mobile ? (
         <button
           type="button"
           className={clsx(styles.searchBox, styles.searchButton)}
@@ -156,7 +180,7 @@ const [deletePending, setDeletePending] = useState(false)
           />
         </div>
       )}
-      {!mobile ? (
+      {!mobile && !managing ? (
         <button
           type="button"
           className={styles.newChat}
@@ -184,12 +208,11 @@ const [deletePending, setDeletePending] = useState(false)
                 {group.label ? (
                   <div className={styles.sectionHeader}>
                     {group.label}
-                    {mobile && index === 0 ? (
+                     {!managing && index === 0 ? (
                       <IconButton
-                        icon={<IconEllipsisOutline16 />}
-                        aria-label={t('chatHistoryManage')}
-                        aria-pressed={managing}
-                        onClick={() => setManaging((value) => !value)}
+                         icon={<IconMultiSelect16 />}
+                         aria-label={t('selectChats')}
+                         onClick={() => setManaging(true)}
                       />
                     ) : null}
                   </div>
@@ -200,8 +223,13 @@ const [deletePending, setDeletePending] = useState(false)
                     key={session.id}
                     session={session}
                     active={session.id === activeId}
-                    hideActions={mobile && !managing}
-                    onDelete={() => setDeleting(session)}
+                     hideActions={mobile || managing}
+                     selected={managing ? selection.includes(session.id) : undefined}
+                     pinned={pins.has(session.id)}
+                     onToggle={() => setSelection((current) => current.includes(session.id) ? current.filter((id) => id !== session.id) : [...current, session.id])}
+                     onMultiSelect={() => { setSelection([session.id]); setManaging(true) }}
+                     onPin={() => setSessionPins([session.id], !pins.has(session.id))}
+                     onDelete={() => setDeleting([session])}
                   />
                 ))}
                 {last < count ? <div aria-hidden="true" style={{ height: (count - last) * rowHeight }} /> : null}
@@ -211,7 +239,13 @@ const [deletePending, setDeletePending] = useState(false)
           )}
         </div>
       </div>
-      <div className={styles.bottom}>
+       {managing ? <div className={styles.selectionActions}>
+         <button type="button" disabled={!selectedSessions.length} onClick={() => {
+           setSessionPins(selectedSessions.map(({ id }) => id), !allPinned)
+           finishSelection()
+         }}><IconPinOutline16 />{t(allPinned ? 'unpinChat' : 'pinChat')}</button>
+         <button type="button" disabled={!selectedSessions.length} onClick={() => setDeleting(selectedSessions)}><IconTrashOutline16 />{t('delete')}</button>
+       </div> : <div className={styles.bottom}>
         <button
           type="button"
           className={styles.settings}
@@ -231,10 +265,10 @@ const [deletePending, setDeletePending] = useState(false)
           </span>
           {!mobile ? <span className={styles.settingsLabel}>{t('settings')}</span> : null}
         </button>
-      </div>
+       </div>}
       {deleting ? (
         <Modal
-          title={t('deleteSessionModalContentTitle')}
+           title={t(deleting.length > 1 ? 'deleteSelectedChats' : 'deleteSessionModalContentTitle')}
           onClose={() => {
             if (!deletePending) {
               setDeleting(null)
@@ -251,9 +285,19 @@ const [deletePending, setDeletePending] = useState(false)
                 onClick={async () => {
                   setDeletePending(true)
                   try {
-                    if (await removeSession(deleting.id)) {
-                      setDeleting(null)
-                    } else {
+                     const failed = []
+                     for (const session of deleting) {
+                       if (await removeSession(session.id)) {
+                         setSessionPins([session.id], false)
+                       } else {
+                         failed.push(session)
+                       }
+                     }
+                     if (!failed.length) {
+                       setDeleting(null)
+                       finishSelection()
+                     } else {
+                       setDeleting(failed)
                       showToast({ key: 'sessionDeleteFailed', type: 'error' })
                     }
                   } finally {

@@ -8,13 +8,15 @@ export type SettingsSection = 'general' | 'api' | 'data' | 'language' | 'appeara
 export const useSettingsDialog = create(() => ({
   open: false,
   section: 'general' as SettingsSection,
+  direction: null as 'forward' | 'back' | null,
 }))
 
 export const openSettings = (section: SettingsSection) =>
-  useSettingsDialog.setState({ open: true, section })
+  useSettingsDialog.setState({ open: true, section, direction: null })
 
 export const closeSettings = () => useSettingsDialog.setState({ open: false })
-export const navigateSettings = (section: SettingsSection) => useSettingsDialog.setState({ section })
+export const navigateSettings = (section: SettingsSection, direction: 'forward' | 'back' = 'forward') =>
+  useSettingsDialog.setState({ section, direction })
 
 /** 没有 API Key 时直接打开 API 管理。 */
 export const ensureApiKey = () => {

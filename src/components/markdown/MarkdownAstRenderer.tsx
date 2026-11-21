@@ -1,4 +1,4 @@
-import { createElement, memo, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import { createContext, createElement, memo, useContext, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
 import clsx from 'clsx'
 import type {
   BlockContent,
@@ -19,6 +19,8 @@ const Html = memo(function Html({ value }: { value: string }) {
   }
   return <span className="ds-markdown-html">{value}</span>
 })
+
+const AnimateText = createContext(false)
 
 const List = memo(function List({ node, loading }: { node: ListNode; loading: boolean }) {
   const ListTag = node.ordered ? 'ol' : 'ul'
@@ -147,9 +149,18 @@ const MarkdownPhrasingContentItem = memo(function MarkdownPhrasingContentItem({
 
 // 按 \n 拆行插 <br>：源文每个换行（含软换行）都渲染为视觉换行
 const TextContent = memo(function TextContent({ children }: { children: string }) {
+  const animate = useContext(AnimateText)
+  const previous = useRef('')
+  const prefixLength = animate && children.startsWith(previous.current) ? previous.current.length : children.length
+  useLayoutEffect(() => { previous.current = children }, [children])
   const result: ReactNode[] = []
+  let offset = 0
+  const breaks = children.match(/\r?\n/g)
   children.split(/\r?\n/).forEach((line, index) => {
-    result.push(<span key={index + 's'}>{line}</span>, <br key={index + 'br'} />)
+    const split = Math.max(0, prefixLength - offset)
+    const tail = line.slice(split)
+    result.push(<span key={index + 's'}>{line.slice(0, split)}{tail ? <span className="ds-streaming-text" key={line.length}>{tail}</span> : null}</span>, <br key={index + 'br'} />)
+    offset += line.length + (breaks?.[index]?.length ?? 0)
   })
   result.pop()
   return result
@@ -236,10 +247,12 @@ export const MarkdownAstRenderer = memo(function MarkdownAstRenderer({
     () => (
       <div className={clsx('ds-markdown', className)}>
         {/* 解析器在根节点下产出块级内容。 */}
+        <AnimateText.Provider value={loading && className === 'ds-assistant-message-main-content'}>
         <MarkdownBlockContentOrDefinitionContent
           nodes={ast.children as Array<BlockContent | DefinitionContent>}
           loading={loading}
         />
+        </AnimateText.Provider>
       </div>
     ),
     [className, ast.children, loading]

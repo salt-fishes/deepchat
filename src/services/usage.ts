@@ -2,6 +2,11 @@ import { openDB, type DBSchema } from 'idb'
 
 type Totals = { requests: number; input: number; output: number; missingInput: number; missingOutput: number }
 type UsageDatabase = DBSchema & { days: { key: string; value: Totals } }
+const listeners = new Set<() => void>()
+export const subscribeChatUsage = (listener: () => void) => {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
 const empty = (): Totals => ({ requests: 0, input: 0, output: 0, missingInput: 0, missingOutput: 0 })
 let database: ReturnType<typeof openDB<UsageDatabase>> | undefined
 const getDb = () => (database ??= openDB<UsageDatabase>('deepchat-usage', 1, {
@@ -26,17 +31,24 @@ export const recordChatUsage = async (started: Date, input?: number, output?: nu
     missingOutput: current.missingOutput + Number(output === undefined),
   }, day)
   await tx.done
+  listeners.forEach((listener) => listener())
 }
 
-export const readChatUsage = async (days: 1 | 7 | 30, now = new Date()): Promise<Totals> => {
+export const readChatUsage = async (days: 1 | 7 | 30, now = new Date()) => {
   const db = await getDb()
   const first = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days + 1)
-  const rows = await db.getAll('days', IDBKeyRange.bound(dayKey(first), dayKey(now)))
-  return rows.reduce((total, row) => ({
+  const daily = []
+  let row = await db.transaction('days').store.openCursor(IDBKeyRange.bound(dayKey(first), dayKey(now)), 'prev')
+  while (row) {
+    daily.push({ date: row.key, ...row.value })
+    row = await row.continue()
+  }
+  const totals = daily.reduce((total, row) => ({
     requests: total.requests + row.requests,
     input: total.input + row.input,
     output: total.output + row.output,
     missingInput: total.missingInput + row.missingInput,
     missingOutput: total.missingOutput + row.missingOutput,
   }), empty())
+  return { totals, daily }
 }
