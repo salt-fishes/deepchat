@@ -1,6 +1,8 @@
 import clsx from 'clsx'
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import {
+  IconArrowLeftOutline16,
   IconDarkOutline16,
   IconDataOutline16,
   IconDownloadOutline16,
@@ -22,6 +24,7 @@ import { regionCodes, getRegionName, provinces, reverseGeocode } from '../../ser
 import { IconButton } from '../base/IconButton.js'
 import {
   isChineseBrowser,
+  setCompactThinking,
   setLocale,
   setLocation,
   setThemePreference,
@@ -31,7 +34,7 @@ import {
 } from '../../services/settings.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
 import { Button } from '../base/Button.js'
-import { Modal } from '../base/Modal.js'
+import { Modal, registerOverlayToken } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import { showToast } from '../base/toastState.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
@@ -39,12 +42,77 @@ import { closeSettings, useSettingsDialog, type SettingsSection } from './settin
 import styles from './Settings.module.css'
 
 /**
- * 设置弹窗：分「通用设置」（主题、语言、朗读音色、位置）与「数据管理」（API Key、导入、导出、删除）。
- * 桌面端为居中弹窗、左侧导航；移动端为底部弹层、导航横排在内容上方
+ * 设置界面：分「通用设置」（主题、语言、朗读音色、位置）与「数据管理」（API Key、导入、导出、删除）。
+ * 移动端为独立二级页面（右侧滑入覆盖全屏、返回键关闭）；桌面端为居中弹窗、左侧导航
  */
 export const SettingsDialog = () => {
   const open = useSettingsDialog((state) => state.open)
-  return open ? <SettingsContent /> : null
+  const [retained, setRetained] = useState(open)
+  const surfaceRef = useRef<HTMLDivElement>(null)
+  const isMobile = useIsMobile()
+  useLayoutEffect(() => {
+    const surface = surfaceRef.current
+    if (!surface) {
+      return
+    }
+    surface.inert = !open
+    if (open) {
+      setRetained(true)
+      return
+    }
+    const animations = surface.getAnimations?.() ?? []
+    if (animations.length === 0) {
+      setRetained(false)
+      return
+    }
+    let active = true
+    void Promise.allSettled(animations.map((animation) => animation.finished)).then(() => {
+      if (active && !useSettingsDialog.getState().open) {
+        setRetained(false)
+      }
+    })
+    return () => {
+      active = false
+    }
+  }, [isMobile, open])
+
+  return open || retained ? (
+    <SettingsContent closing={!open} isMobile={isMobile} surfaceRef={surfaceRef} />
+  ) : null
+}
+
+/** 移动端独立二级页面：右侧滑入覆盖全屏，返回键关闭 */
+const SettingsPage = ({
+  title,
+  closing,
+  surfaceRef,
+  children,
+}: {
+  title: string
+  closing: boolean
+  surfaceRef: RefObject<HTMLDivElement>
+  children: ReactNode
+}) => {
+  const t = useTranslate()
+  // 挂载期间（含滑出阶段）占用返回键；确认弹窗后注册，栈顶优先关闭
+  useEffect(() => registerOverlayToken(closeSettings), [])
+  return createPortal(
+    <div ref={surfaceRef} className={clsx(styles.page, closing && styles.pageClosing)}>
+      <div className={styles.pageTop}>
+        <IconButton
+          size="m"
+          tone="primary"
+          icon={<IconArrowLeftOutline16 />}
+          tooltip={t('back')}
+          aria-label={t('back')}
+          onClick={closeSettings}
+        />
+        <div className={styles.pageTitle}>{title}</div>
+      </div>
+      <div className={clsx(styles.dialogMain, styles.pageMain)}>{children}</div>
+    </div>,
+    document.body
+  )
 }
 
 const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode }[] = [
@@ -56,10 +124,13 @@ const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode
   { value: 'data', label: 'settingDialogAsideDataOptionLabel', icon: <IconDataOutline16 /> },
 ]
 
-const SettingsContent = () => {
+const SettingsContent = ({ closing, isMobile, surfaceRef }: {
+  closing: boolean
+  isMobile: boolean
+  surfaceRef: RefObject<HTMLDivElement>
+}) => {
   const t = useTranslate()
-  const isMobile = useIsMobile()
-  // 打开时按调用方指定的分组选中，之后在弹窗内切换
+  // 打开时按调用方指定的分组选中，之后在界面内切换
   const [section, setSection] = useState(() => useSettingsDialog.getState().section)
   // 切换分组不丢失正在输入的 API Key 与导入状态
   const apiKeyEditor = useApiKeyEditor()
@@ -67,67 +138,81 @@ const SettingsContent = () => {
   const historyDelete = useHistoryDelete()
   const replacingHistory = useChatStore((state) => state.importingHistory)
   const historyBusy = historyImport.busy || historyDelete.busy || replacingHistory
+  const body = (
+    <>
+      <div role="tablist" className={styles.navigation}>
+        {sections.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            role="tab"
+            aria-selected={section === item.value}
+            className={clsx(styles.navItem, section === item.value && styles.navItemActive)}
+            onClick={() => setSection(item.value)}
+          >
+            {item.icon}
+            {t(item.label)}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" className={styles.content}>
+        {section === 'general' ? (
+          <>
+            <ThemeSetting />
+            <CompactThinkingSetting />
+            <LocaleSetting />
+            <TtsVoiceSetting />
+            <LocationSetting />
+          </>
+        ) : (
+          <>
+            <ApiKeyField editor={apiKeyEditor} />
+            <ImportHistory historyImport={historyImport} disabled={historyBusy} />
+            <ExportHistory disabled={historyBusy} />
+            <SettingCell
+              label={t('deleteAllSessions')}
+              status={null}
+              action={
+                <Button
+                  variant="dangerOutlined"
+                  size="m"
+                  className={styles.cellButton}
+                  disabled={historyBusy}
+                  onClick={historyDelete.open}
+                >
+                  {t('delete')}
+                </Button>
+              }
+            />
+            {isMobile ? <ApiKeyConfirm editor={apiKeyEditor} /> : null}
+          </>
+        )}
+      </div>
+    </>
+  )
   return (
     <>
-      <Modal
-        title={t('settings')}
-        closable
-        className={styles.dialog}
-        mainClassName={styles.dialogMain}
-        onClose={() => {
-          if (!historyDelete.busy) {
-            closeSettings()
-          }
-        }}
-      >
-        <div role="tablist" className={styles.navigation}>
-          {sections.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              role="tab"
-              aria-selected={section === item.value}
-              className={clsx(styles.navItem, section === item.value && styles.navItemActive)}
-              onClick={() => setSection(item.value)}
-            >
-              {item.icon}
-              {t(item.label)}
-            </button>
-          ))}
-        </div>
-        <div role="tabpanel" className={styles.content}>
-          {section === 'general' ? (
-            <>
-              <ThemeSetting />
-              <LocaleSetting />
-              <TtsVoiceSetting />
-              <LocationSetting />
-            </>
-          ) : (
-            <>
-              <ApiKeyField editor={apiKeyEditor} />
-              <ImportHistory historyImport={historyImport} disabled={historyBusy} />
-              <ExportHistory disabled={historyBusy} />
-              <SettingCell
-                label={t('deleteAllSessions')}
-                status={null}
-                action={
-                  <Button
-                    variant="dangerOutlined"
-                    size="m"
-                    className={styles.cellButton}
-                    disabled={historyBusy}
-                    onClick={historyDelete.open}
-                  >
-                    {t('delete')}
-                  </Button>
-                }
-              />
-              {isMobile ? <ApiKeyConfirm editor={apiKeyEditor} /> : null}
-            </>
-          )}
-        </div>
-      </Modal>
+      {isMobile ? (
+        <SettingsPage title={t('settings')} closing={closing} surfaceRef={surfaceRef}>
+          {body}
+        </SettingsPage>
+      ) : (
+        <Modal
+          overlayRef={surfaceRef}
+          closing={closing}
+          title={t('settings')}
+          closable
+          className={styles.dialog}
+          mainClassName={styles.dialogMain}
+          onClose={() => {
+            if (!historyDelete.busy) {
+              closeSettings()
+            }
+          }}
+        >
+          {body}
+        </Modal>
+      )}
       {historyImport.file ? <ImportConfirm historyImport={historyImport} /> : null}
       {historyDelete.opened ? <DeleteAllConfirm historyDelete={historyDelete} /> : null}
     </>
@@ -436,6 +521,28 @@ const ThemeSetting = () => {
             </button>
           ))}
         </div>
+      }
+    />
+  )
+}
+
+const CompactThinkingSetting = () => {
+  const t = useTranslate()
+  const enabled = useSettings((state) => state.compactThinking)
+  return (
+    <SettingCell
+      label={t('compactThinking')}
+      description={t('compactThinkingDescription')}
+      status={null}
+      action={
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label={t('compactThinking')}
+          className={styles.switch}
+          onClick={() => setCompactThinking(!enabled)}
+        />
       }
     />
   )

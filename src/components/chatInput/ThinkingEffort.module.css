@@ -4,19 +4,20 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 18px;
+  width: 28px;
   height: 100%;
-  margin-left: -6px;
   padding: 0;
   border: none;
-  border-radius: 0 18px 18px 0;
+  border-radius: 0 16px 16px 0;
   color: inherit;
   background-color: transparent;
   cursor: pointer;
 }
 
-.trigger:hover {
-  background-color: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .trigger:hover {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .open {
@@ -33,6 +34,35 @@
 }
 
 /* 强度菜单：单行两段（标签+描述 | 勾），复用 Select 的菜单底样式 */
+.menu {
+  width: min(236px, calc(100vw - 16px));
+  min-width: 0;
+  animation: effort-enter var(--motion-popup) var(--motion-ease-enter);
+}
+
+@keyframes effort-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+.option {
+  width: 100%;
+  padding-block: 7px;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: start;
+}
+
+.option[aria-checked='true'] {
+  color: var(--dsw-alias-brand-text);
+}
+
+.option svg {
+  flex-shrink: 0;
+}
+
 .optionText {
   display: flex;
   flex-direction: column;

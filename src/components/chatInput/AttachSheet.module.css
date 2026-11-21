@@ -3,11 +3,12 @@
 .sheetWrap {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.28s var(--ds-ease-in-out);
+  transition: grid-template-rows var(--motion-panel) var(--motion-ease-exit);
 }
 
 .open {
   grid-template-rows: 1fr;
+  transition-timing-function: var(--motion-ease-enter);
 }
 
 .sheet {
@@ -15,10 +16,16 @@
   min-height: 0;
   /* 收起时整块不可见不可点 */
   visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity var(--motion-feedback) var(--motion-ease-exit),
+    visibility var(--motion-panel);
 }
 
 .open .sheet {
   visibility: visible;
+  opacity: 1;
+  transition-timing-function: var(--motion-ease-enter), linear;
 }
 
 .sheetBody {
@@ -26,11 +33,6 @@
   flex-direction: column;
   gap: 10px;
   padding: 4px 12px 12px;
-}
-
-.open .sheetBody {
-  /* 面板底部避让手势条（输入容器内的元素不会再吃到 frame 外层 padding） */
-  padding-bottom: calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
 }
 
 /* 最近图片行 */

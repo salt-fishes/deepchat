@@ -1,13 +1,10 @@
 import clsx from 'clsx'
-import { useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAnchoredPosition, useDismiss } from '../base/anchored.js'
 import { IconCheckOutline16, IconChevronDownOutline14 } from '../base/icons.js'
-import {
-  setThinkingEffort,
-  useSettings,
-  type ThinkingEffort,
-} from '../../services/settings.js'
+import { registerOverlayToken } from '../base/Modal.js'
+import { setThinkingEffort, useSettings, type ThinkingEffort } from '../../services/settings.js'
 import { useTranslate } from '../../i18n/index.js'
 import selectStyles from '../base/Select.module.css'
 import styles from './ThinkingEffort.module.css'
@@ -28,14 +25,14 @@ export const ThinkingEffortTrigger = () => {
   const t = useTranslate()
   const effort = useSettings((state) => state.thinkingEffort)
   const [open, setOpen] = useState(false)
-  const { anchorRef, floatingRef, position } = useAnchoredPosition<HTMLButtonElement, HTMLDivElement>(
-    open,
-    // 输入区在页面底部，菜单向上展开并贴右侧对齐；
-    // 不传 maxHeight 以走视口钳制的 left 定位分支，避免触发器靠左时菜单被屏幕左缘剪裁
-    { side: 'top', align: 'end', offset: 6 }
-  )
+  const menuId = useId()
+  const { anchorRef, floatingRef, position } = useAnchoredPosition<
+    HTMLButtonElement,
+    HTMLDivElement
+  >(open, { side: 'top', align: 'start', offset: 8, fitVisualViewport: true })
   // Esc 只关菜单，不让外层浮层一起关闭
   useDismiss(open, [anchorRef, floatingRef], () => setOpen(false), { captureEscape: true })
+  useEffect(() => (open ? registerOverlayToken(() => setOpen(false)) : undefined), [open])
 
   return (
     <>
@@ -46,6 +43,7 @@ export const ThinkingEffortTrigger = () => {
         aria-label={t('thinkingEffortAria')}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((value) => !value)}
       >
         <span className={clsx(styles.arrow, open && styles.arrowUp)}>
@@ -55,18 +53,20 @@ export const ThinkingEffortTrigger = () => {
       {open
         ? createPortal(
             <div
+              id={menuId}
               ref={floatingRef}
               className={clsx(selectStyles.menu, styles.menu)}
-              style={position ?? undefined}
+              style={position ?? { visibility: 'hidden' }}
               role="menu"
               aria-label={t('thinkingEffort')}
             >
               {EFFORTS.map((option) => (
-                <div
+                <button
                   key={option.value}
+                  type="button"
                   role="menuitemradio"
                   aria-checked={option.value === effort}
-                  className={selectStyles.option}
+                  className={clsx(selectStyles.option, styles.option)}
                   onClick={() => {
                     setOpen(false)
                     setThinkingEffort(option.value)
@@ -77,7 +77,7 @@ export const ThinkingEffortTrigger = () => {
                     <span className={styles.optionDesc}>{t(option.descKey)}</span>
                   </span>
                   {option.value === effort ? <IconCheckOutline16 /> : null}
-                </div>
+                </button>
               ))}
             </div>,
             document.body

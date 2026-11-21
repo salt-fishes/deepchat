@@ -1,11 +1,10 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
-import { memo, useEffect, useState, type ReactNode } from 'react'
+import { memo, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   IconBrowseOutline16,
   IconBrowseWarningOutline16,
   IconChevronDownOutline14,
-  IconChevronRightOutline14,
   IconCheckedOutline14,
   IconCloseFill14,
   IconLinkOutline16,
@@ -15,6 +14,7 @@ import {
   IconThinkOutline16,
 } from '../base/icons.js'
 import type { AssistantMessage } from '../../services/chat/types.js'
+import { useSettings } from '../../services/settings.js'
 import {
   getAreaTitle,
   isDeepSearchKind,
@@ -65,30 +65,80 @@ export const ReplyArea = memo(function ReplyArea({
   hasResponse: boolean
 }) {
   useTranslate()
-  const [open, setOpen] = useState(true)
+  const compactThinking = useSettings((state) => state.compactThinking)
+  const [manual, setManual] = useState<'expanded' | 'collapsed' | null>(null)
+  const stepsId = useId()
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const stepsRef = useRef<HTMLDivElement>(null)
   const titleActive = streaming && !hasResponse
   useTicker(titleActive, 1000)
-  if (view.steps.length === 0 && !(message.thinking && streaming)) {
-    return null
-  }
   // 未记录请求开关时，按是否有思考内容显示标题。
   const thinking = message.thinking ?? view.steps.some((step) => step.type === 'thinking')
   const title = thinking ? getAreaTitle(view, streaming, Date.now(), hasResponse) : null
+  const mode = !title
+    ? 'expanded'
+    : (manual ?? (compactThinking ? (titleActive ? 'preview' : 'collapsed') : 'expanded'))
+  const preview = mode === 'preview'
+  const collapsed = mode === 'collapsed'
+  const capped = preview || (compactThinking && collapsed && manual === null)
+  const visible = view.steps.length > 0 || Boolean(message.thinking && streaming)
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current
+    const steps = stepsRef.current
+    if (!viewport || !steps) {
+      return
+    }
+
+    viewport.inert = collapsed
+    if (!preview) {
+      if (!capped) {
+        viewport.scrollTop = 0
+        delete viewport.dataset.overflow
+      }
+      return
+    }
+    const follow = () => {
+      viewport.scrollTop = viewport.scrollHeight
+      viewport.dataset.overflow = String(viewport.scrollHeight > viewport.clientHeight + 1)
+    }
+    follow()
+    const observer = new ResizeObserver(follow)
+    observer.observe(steps)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [capped, collapsed, preview, visible])
+
+  if (!visible) {
+    return null
+  }
+
   const stopped = !streaming && !hasResponse
   return (
     <div className={styles.area}>
       {title ? (
-        <div className={styles.title} onClick={() => setOpen((value) => !value)}>
+        <button
+          type="button"
+          className={styles.title}
+          aria-controls={stepsId}
+          aria-expanded={mode === 'expanded'}
+          onClick={() => setManual(mode === 'expanded' ? 'collapsed' : 'expanded')}
+        >
           <span className={clsx(styles.titleIcon, stopped && styles.stoppedIcon)}>
             <IconThinkOutline16 />
           </span>
           <span className={clsx(styles.titleText, titleActive && styles.shimmer)}>{title}</span>
-          {open ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}
-        </div>
+          <span className={clsx(styles.chevron, mode === 'expanded' && styles.chevronExpanded)}>
+            <IconChevronDownOutline14 />
+          </span>
+        </button>
       ) : null}
-      <div className={clsx(styles.collapsible, !open && title && styles.collapsed)}>
-        <div className={styles.collapsibleInner}>
-          <div className={styles.steps}>
+      <div className={clsx(styles.collapsible, collapsed && styles.collapsed)}>
+        <div
+          id={stepsId}
+          ref={viewportRef}
+          className={clsx(styles.collapsibleInner, capped && styles.preview)}
+        >
+          <div ref={stepsRef} className={styles.steps}>
             {view.steps.map((step, index) => (
               <StepItem
                 key={stepKey(step, index)}

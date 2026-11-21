@@ -19,6 +19,7 @@ export type AnchoredPosition = {
   left?: number
   right?: number
   maxHeight?: number
+  maxWidth?: number
 }
 
 export type AnchoredOptions<T extends HTMLElement = HTMLElement> = {
@@ -37,6 +38,8 @@ export type AnchoredOptions<T extends HTMLElement = HTMLElement> = {
   maxHeight?: number
   /** 判定「空间不足、需要翻面」的最小纵向空间 */
   minSpace?: number
+  /** 浮层按可见视口定位，空间不足时限制尺寸并在浮层内滚动。 */
+  fitVisualViewport?: boolean
   /**
    * 用触发元素的第一个子元素作为测量与对齐基准。触发元素自身不产生盒子时
    * （如 display: contents），它的 getBoundingClientRect 是空矩形。
@@ -93,6 +96,7 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
     offset = 4,
     maxHeight,
     minSpace = 160,
+    fitVisualViewport = false,
     measureFirstChild = false,
     measureKey,
     anchorRef: externalAnchorRef,
@@ -110,7 +114,8 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
       previous.top === next.top &&
       previous.left === next.left &&
       previous.right === next.right &&
-      previous.maxHeight === next.maxHeight
+      previous.maxHeight === next.maxHeight &&
+      previous.maxWidth === next.maxWidth
         ? previous
         : next
     )
@@ -133,6 +138,38 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
       return
     }
     const rect = anchor.getBoundingClientRect()
+    if (fitVisualViewport) {
+      const viewport = window.visualViewport
+      const top = (viewport?.offsetTop ?? 0) + VIEWPORT_PADDING
+      const left = (viewport?.offsetLeft ?? 0) + VIEWPORT_PADDING
+      const bottom = top + (viewport?.height ?? window.innerHeight) - 2 * VIEWPORT_PADDING
+      const availableWidth = Math.max(
+        0,
+        (viewport?.width ?? window.innerWidth) - 2 * VIEWPORT_PADDING
+      )
+      const width = Math.min(floating.offsetWidth, availableWidth)
+      const desiredHeight = floating.scrollHeight + (floating.offsetHeight - floating.clientHeight)
+      const above = Math.max(0, Math.min(bottom, rect.top - offset) - top)
+      const below = Math.max(0, bottom - Math.max(top, rect.bottom + offset))
+      const resolved = resolveSide(above, below, side, desiredHeight)
+      const height = Math.min(desiredHeight, resolved === 'top' ? above : below)
+      const aligned =
+        align === 'end'
+          ? rect.right - width
+          : align === 'center'
+            ? rect.left + (rect.width - width) / 2
+            : rect.left
+      applyPosition({
+        top:
+          resolved === 'top'
+            ? Math.min(bottom, rect.top - offset) - height
+            : Math.max(top, rect.bottom + offset),
+        left: Math.max(left, Math.min(aligned + alignOffset, left + availableWidth - width)),
+        maxHeight: height,
+        maxWidth: availableWidth,
+      })
+      return
+    }
     const spaceAbove = rect.top - offset - VIEWPORT_PADDING
     const spaceBelow = window.innerHeight - rect.bottom - offset - VIEWPORT_PADDING
 
@@ -158,7 +195,18 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
       right: Math.max(VIEWPORT_PADDING, window.innerWidth - rect.right),
       maxHeight: height,
     })
-  }, [align, alignOffset, applyPosition, floatingRef, getAnchor, maxHeight, minSpace, offset, side])
+  }, [
+    align,
+    alignOffset,
+    applyPosition,
+    fitVisualViewport,
+    floatingRef,
+    getAnchor,
+    maxHeight,
+    minSpace,
+    offset,
+    side,
+  ])
 
   // 打开时与内容变化时同步测量，必须在绘制前完成
   useLayoutEffect(() => {
@@ -187,12 +235,17 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
     }
     window.addEventListener('scroll', update, { capture: true, passive: true })
     window.addEventListener('resize', update, { passive: true })
+    const viewport = fitVisualViewport ? window.visualViewport : null
+    viewport?.addEventListener('resize', update)
+    viewport?.addEventListener('scroll', update)
     return () => {
       observer.disconnect()
       window.removeEventListener('scroll', update, { capture: true })
       window.removeEventListener('resize', update)
+      viewport?.removeEventListener('resize', update)
+      viewport?.removeEventListener('scroll', update)
     }
-  }, [floatingRef, getAnchor, open, update])
+  }, [fitVisualViewport, floatingRef, getAnchor, open, update])
 
   useEffect(() => {
     if (!open) {

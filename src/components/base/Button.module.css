@@ -18,7 +18,7 @@
   transition:
     background-color var(--ds-transition-duration) var(--ds-ease-in-out),
     opacity var(--ds-transition-duration) var(--ds-ease-in-out),
-    transform 0.12s var(--ds-ease-in-out);
+    transform var(--motion-feedback) var(--motion-ease-enter);
 
   &:active:not(:disabled) {
     transform: scale(0.96);

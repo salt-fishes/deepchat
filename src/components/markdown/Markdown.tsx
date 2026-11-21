@@ -3,12 +3,12 @@ import type { Source } from '../../services/chat/view.js'
 import { toMdAst } from '../../services/markdown/parse.js'
 import { useScrollToBottom } from '../messages/scrollContext.js'
 import { MarkdownAstRenderer } from './MarkdownAstRenderer.js'
-import { useThrottleMarkdownRender } from './useThrottleMarkdownRender.js'
+import { useStreamingMarkdown } from './useStreamingMarkdown.js'
 import './markdown.css'
 import './highlight.css'
 
 /**
- * 渲染链路：节流 → 解析 AST → 渲染。
+ * 流式文字分批显示，每批继续走 Markdown 解析。
  * 传入 sources 时把正文里的 [citation:N] 渲染为角标。
  */
 export const Markdown = memo(function Markdown({
@@ -27,10 +27,10 @@ export const Markdown = memo(function Markdown({
   sources?: Source[]
 }) {
   const scrollToBottom = useScrollToBottom()
-  const throttledMarkdown = useThrottleMarkdownRender(content, loading)
+  const displayedMarkdown = useStreamingMarkdown(content, loading)
   const ast = useMemo(
-    () => (throttledMarkdown ? toMdAst(throttledMarkdown, { sources, disableLink }) : null),
-    [throttledMarkdown, sources, disableLink]
+    () => (displayedMarkdown ? toMdAst(displayedMarkdown, { sources, disableLink }) : null),
+    [displayedMarkdown, sources, disableLink]
   )
   return ast ? (
     <MarkdownAstRenderer

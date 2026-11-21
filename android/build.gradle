@@ -22,6 +22,11 @@ allprojects {
         google()
         mavenCentral()
     }
+    // Capacitor 9.0.0-rc.0 的 capacitor-cordova-android-plugins 模板末尾有
+    // `for (def func : cdvPluginPostBuildExtras)`，但模板未随附 cordova.variables.gradle
+    // （sync 每次重建该目录，仅在有 Cordova 插件时才写入），无 Cordova 插件的工程会报
+    // unknown property。在此注入空数组兜底；若后续版本补齐则本地生成文件会自然覆盖。
+    ext.cdvPluginPostBuildExtras = []
 }
 
 task clean(type: Delete) {

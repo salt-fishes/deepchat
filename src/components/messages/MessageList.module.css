@@ -25,6 +25,7 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior-y: contain;
+    touch-action: pan-y pinch-zoom;
     scrollbar-color: var(--scroll-color) transparent;
   }
 }

@@ -56,8 +56,7 @@
     bottom: auto;
     flex-shrink: 0;
     margin: 0 auto;
-    /* 底部固定预留一块空白（手势条区域）：保底 32px 不依赖系统安全区变量，
-       变量可用且更大时（如三键导航 48px）取更大值 */
-    padding-bottom: max(32px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    /* 与欢迎页一致，系统安全区由外层处理。 */
+    padding-bottom: 32px;
   }
 }

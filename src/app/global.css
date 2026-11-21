@@ -49,6 +49,13 @@ body.change-theme *::after {
   --sider-width: min(83vw, 480px);
 }
 
+.native-safe-area {
+  --safe-area-inset-top: 0px;
+  --safe-area-inset-right: 0px;
+  --safe-area-inset-bottom: 0px;
+  --safe-area-inset-left: 0px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

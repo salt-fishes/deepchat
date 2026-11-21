@@ -1,3 +1,31 @@
+.switch {
+  display: flex;
+  flex: 0 0 44px;
+  align-items: center;
+  height: 28px;
+  padding: 3px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  transition: background-color var(--ds-transition-duration) var(--ds-ease-in-out);
+
+  &::before {
+    content: '';
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform var(--ds-transition-duration) var(--ds-ease-in-out);
+  }
+
+  &[aria-checked='true'] {
+    background: var(--dsw-alias-button-primary-fill);
+
+    &::before { transform: translateX(16px); }
+  }
+}
+
 .dialog {
   --modal-header-gap: 7px;
   width: 760px;
@@ -11,6 +39,56 @@
   flex: 1;
   min-height: 0;
   color: var(--dsw-alias-label-primary);
+}
+
+/* 移动端独立二级页面：右侧滑入覆盖全屏，返回键关闭 */
+.page {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--dsw-alias-bg-base);
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  transform: translateX(0);
+  transition: transform var(--motion-page) var(--motion-ease-enter);
+}
+
+/* 关闭时滑出（保持挂载到动效播完再卸载） */
+.pageClosing {
+  transform: translateX(100%);
+  transition: transform var(--motion-panel) var(--motion-ease-exit);
+}
+
+@starting-style {
+  .page:not(.pageClosing) {
+    transform: translateX(100%);
+  }
+}
+
+.pageTop {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 56px;
+  padding: 0 10px;
+}
+
+.pageTitle {
+  flex: 1;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  font-size: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pageMain {
+  padding: 0 16px;
 }
 
 .navigation {
@@ -349,7 +427,8 @@
   .content {
     padding-top: 24px;
     padding-left: 0;
-    padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+    /* 保底 32px（与聊天页一致）：手势条避让不依赖安全区变量 */
+    padding-bottom: max(32px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   }
 
   .text {

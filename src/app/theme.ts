@@ -4,18 +4,16 @@ import { useSettings, type ThemePreference } from '../services/settings.js'
 
 export type Theme = 'light' | 'dark'
 
-// Capacitor 内置 SystemBars 插件（@capacitor/android 自带，无需 npm 依赖）：
-// 打包后状态栏/手势条图标颜色与窗口底色跟随应用内主题，而非仅跟随系统深浅色
-const SystemBars = registerPlugin<{
-  setStyle(options: { style: 'LIGHT' | 'DARK'; bar?: string }): Promise<void>
-}>('SystemBars')
+const WindowTheme = registerPlugin<{
+  setTheme(options: { dark: boolean }): Promise<void>
+}>('WindowTheme')
 
 const syncNativeBars = (theme: Theme) => {
-  if (!Capacitor.isNativePlatform()) {
+  if (Capacitor.getPlatform() !== 'android') {
     return
   }
-  void SystemBars.setStyle({ style: theme === 'dark' ? 'DARK' : 'LIGHT' }).catch(() => {
-    // 低版本 Capacitor 或 iOS 无此实现时静默忽略
+  void WindowTheme.setTheme({ dark: theme === 'dark' }).catch(() => {
+    // 页面主题独立于原生窗口主题更新。
   })
 }
 
@@ -79,6 +77,10 @@ const syncTheme = () => {
 
 /** 首屏渲染前同步应用一次，之后随主题设置与系统深浅色变化更新 */
 export const setupTheme = () => {
+  if (Capacitor.getPlatform() === 'android') {
+    // MainActivity 已避让 Android 的系统栏，网页只需在普通浏览器里读取 env 安全区。
+    document.documentElement.classList.add('native-safe-area')
+  }
   syncTheme()
   if (document.readyState !== 'complete') {
     window.addEventListener('load', syncPageBackground, { once: true })

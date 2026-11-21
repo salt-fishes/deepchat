@@ -55,9 +55,8 @@
     justify-content: flex-end;
     max-width: none;
     margin: 0;
-    /* 底部固定预留一块空白（手势条区域）：保底 32px 不依赖系统安全区变量，
-       变量可用且更大时（如三键导航 48px）取更大值 */
-    padding: 0 16px max(32px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    /* 系统安全区由外层 frame 或原生窗口处理，这里只保留输入区的设计留白。 */
+    padding: 0 16px 32px;
   }
 
   .greeting {

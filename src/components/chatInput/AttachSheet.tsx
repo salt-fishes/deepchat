@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAnchoredPosition } from '../base/anchored.js'
 import { registerOverlayToken } from '../base/Modal.js'
@@ -45,6 +45,7 @@ export const AttachSheet = ({
   const galleryInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const mobileSheetRef = useRef<HTMLDivElement>(null)
   const [photos, setPhotos] = useState<RecentPhoto[]>([])
   const [photosState, setPhotosState] = useState<'loading' | 'ready' | 'unavailable'>('loading')
   const [adding, setAdding] = useState(false)
@@ -60,6 +61,12 @@ export const AttachSheet = ({
       anchorRef,
     }
   )
+
+  useLayoutEffect(() => {
+    if (mobileSheetRef.current) {
+      mobileSheetRef.current.inert = !open
+    }
+  }, [open, isMobile])
 
   // 打开时拉取最近图片；权限被拒或无照片则整行隐藏
   useEffect(() => {
@@ -223,6 +230,7 @@ export const AttachSheet = ({
     // 移动端：面板常驻挂载于输入容器内部，随 grid 行高展开收起，与输入框连成一体
     return (
       <div
+        ref={mobileSheetRef}
         className={clsx(styles.sheetWrap, open && styles.open)}
         aria-hidden={!open}
       >

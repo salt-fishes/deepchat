@@ -6,21 +6,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   background-color: rgba(0, 0, 0, var(--overlay-opacity));
   backdrop-filter: blur(2px);
-  animation: overlay-in 0.15s ease-out;
+  opacity: 1;
+  transition: opacity var(--motion-popup) var(--motion-ease-enter);
 
   [data-ds-dark-theme] & {
     --overlay-opacity: 0.6;
-  }
-}
-
-@keyframes overlay-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 
@@ -29,7 +23,7 @@
   flex-direction: column;
   box-sizing: border-box;
   width: 380px;
-  max-width: calc(100vw - 32px);
+  max-width: calc(100% - 32px);
   padding: 22px 24px;
   border-radius: 24px;
   font-size: 14px;
@@ -41,17 +35,27 @@
     0 0 1px 0 rgba(0, 0, 0, 0.2),
     0 0 4px 0 rgba(0, 0, 0, 0.02),
     0 12px 32px 0 rgba(0, 0, 0, 0.08);
-  animation: content-in 0.18s var(--ds-ease-in-out);
+  transform: none;
+  transition: transform var(--motion-panel) var(--motion-ease-enter);
 }
 
-@keyframes content-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
+.closing {
+  opacity: 0;
+  transition-timing-function: var(--motion-ease-exit);
+
+  .content {
+    transform: translateY(4px) scale(0.99);
+    transition: transform var(--motion-popup) var(--motion-ease-exit);
   }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+}
+
+@starting-style {
+  .overlay:not(.closing) {
+    opacity: 0;
+
+    .content {
+      transform: translateY(6px) scale(0.985);
+    }
   }
 }
 
@@ -89,11 +93,12 @@
   margin-top: 20px;
 }
 
-/* 移动端：全屏浮层不在 .frame 内，需要自行避让上下系统栏；超高时内容内部滚动 */
+/* 移动端：全屏浮层自行避让上下系统栏；超高时内容内部滚动 */
 @media not all and (min-width: 768px) {
   .overlay {
     padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
-    padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+    /* 保底 16px：手势条避让不依赖安全区变量 */
+    padding-bottom: max(16px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   }
 
   .content {

@@ -58,7 +58,6 @@ export const App = () => {
   // 推挤式抽屉：主内容位移与手势所需的 DOM 引用
   const mainRef = useRef<HTMLElement>(null)
   const drawerRef = useRef<HTMLDivElement>(null)
-  const drawerEdgeRef = useRef<HTMLDivElement>(null)
   const sliverHitRef = useRef<HTMLDivElement>(null)
   const siderOpen = useMobileSider((state) => state.open)
   const siderDragging = useMobileSider((state) => state.dragging)
@@ -66,7 +65,6 @@ export const App = () => {
     isMobile,
     drawerRef,
     mainRef,
-    edgeRef: drawerEdgeRef,
     sliverRef: sliverHitRef,
   })
 
@@ -163,7 +161,6 @@ export const App = () => {
         </main>
         <SearchPanel />
       </div>
-      {isMobile ? <div ref={drawerEdgeRef} className={styles.drawerEdge} aria-hidden /> : null}
       {isMobile ? (
         <div
           ref={sliverHitRef}

@@ -4,7 +4,7 @@
   display: flex;
   overflow: hidden;
   background-color: var(--dsw-alias-bg-base);
-  /* Android APK 沉浸式：SystemBars 注入 --safe-area-inset-*；浏览器回退 env()（桌面为 0），背景自然延伸到系统栏下 */
+  /* Android 已由原生避让，其他浏览器由页面读取 env()。 */
   padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
@@ -21,20 +21,6 @@
   background-color: var(--dsw-alias-bg-base);
 }
 
-/* 推挤式抽屉手势层：左缘打开热区与打开后的 sliver 点击层（仅移动端渲染） */
-.drawerEdge {
-  position: fixed;
-  /* 从汉堡按钮下方开始，避免盖住左上角菜单入口 */
-  top: 110px;
-  bottom: 0;
-  left: 0;
-  z-index: 763;
-  /* 28px：与原生层声明的系统手势排除区等宽，左缘中部可从边缘直接滑出抽屉 */
-  width: 28px;
-  touch-action: none;
-  user-select: none;
-}
-
 .sliverHit {
   position: fixed;
   top: 0;
@@ -42,6 +28,7 @@
   left: var(--sider-width, 83vw);
   right: 0;
   z-index: 762;
+  touch-action: pan-y pinch-zoom;
   /* 常驻挂载（手势 hook 需要稳定的 ref）；仅抽屉打开时拦截点击 */
   visibility: hidden;
   pointer-events: none;
@@ -101,9 +88,9 @@
   /* 推挤式抽屉：主内容右移露出圆角 sliver，抽屉在其下方（portal）滑入 */
   .main {
     z-index: 761;
-    transition: transform 0.28s var(--ds-ease-in-out);
+    transition: transform var(--motion-page) var(--motion-ease-enter);
     /* 纵向滚动交给原生，横向让给全页抽屉手势（useDrawerGesture 的主内容拖动） */
-    touch-action: pan-y;
+    touch-action: pan-y pinch-zoom;
   }
 
   .mainPushed {

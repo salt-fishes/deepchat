@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslate } from '../../i18n/index.js'
 import { IconCloseOutline16 } from './icons.js'
@@ -40,6 +40,8 @@ export const Modal = ({
   closable = false,
   className,
   mainClassName,
+  overlayRef,
+  closing = false,
   onClose,
 }: {
   title: ReactNode
@@ -50,6 +52,8 @@ export const Modal = ({
   className?: string
   /** 内容区的 class */
   mainClassName?: string
+  overlayRef?: RefObject<HTMLDivElement>
+  closing?: boolean
   onClose: () => void
 }) => {
   const t = useTranslate()
@@ -73,7 +77,8 @@ export const Modal = ({
 
   return createPortal(
     <div
-      className={styles.overlay}
+      ref={overlayRef}
+      className={clsx(styles.overlay, closing && styles.closing)}
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <div

@@ -608,3 +608,19 @@ export const IconLocationOutline16 = () => (
     <circle cx={8} cy={6.7} r={2.1} />
   </svg>
 )
+
+export const IconArrowLeftOutline16 = () => (
+  <svg
+    width={16}
+    height={16}
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.4}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M10 3.2L5.2 8L10 12.8" />
+  </svg>
+)

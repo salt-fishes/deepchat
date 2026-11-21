@@ -33,7 +33,6 @@ import { DraftAttachments } from './DraftAttachments.js'
 import { AttachSheet } from './AttachSheet.js'
 import { openCropper } from './imageCropperState.js'
 import { useVoiceInput } from './useVoiceInput.js'
-import { VoiceButton } from './VoiceButton.js'
 import { Spectrum } from './Spectrum.js'
 import { useTranslate } from '../../i18n/index.js'
 import { ThinkingEffortTrigger } from './ThinkingEffort.js'
@@ -146,6 +145,61 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   // 移动端录音时用频谱替代输入框内容
   const recording = voice.status === 'recording'
 
+  /** 空输入时长按进入语音输入：按住说话，松开自动转写填入（移动端替代麦克风按钮） */
+  const longPressTimer = useRef<number | null>(null)
+  const clearLongPress = () => {
+    if (longPressTimer.current !== null) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+  const onInputPointerDown = (event: React.PointerEvent<HTMLElement>) => {
+    if (
+      !isMobile ||
+      !event.isPrimary ||
+      text !== '' ||
+      !voice.available ||
+      // idle 长按开始说话；recording 允许再次长按收尾（首次授权弹窗会打断按住）
+      (voice.status !== 'idle' && voice.status !== 'recording') ||
+      useChatStore.getState().importingHistory
+    ) {
+      return
+    }
+    clearLongPress()
+    longPressTimer.current = window.setTimeout(() => {
+      longPressTimer.current = null
+      if (!ensureApiKey()) {
+        return
+      }
+      // 收起键盘，频谱接管输入区
+      textareaRef.current?.blur()
+      void voice.toggle()
+    }, 450)
+  }
+
+  // 按住说话：录音中松开手指即结束并转写（手指可能已滑出输入区命中范围，挂全局）
+  const voiceToggleRef = useRef(voice.toggle)
+  voiceToggleRef.current = voice.toggle
+  const voiceStatusRef = useRef(voice.status)
+  voiceStatusRef.current = voice.status
+  useEffect(() => {
+    if (voice.status !== 'recording') {
+      return
+    }
+    const stop = () => {
+      if (voiceStatusRef.current === 'recording') {
+        voiceToggleRef.current()
+      }
+    }
+    window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+    return () => {
+      window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
+    }
+  }, [voice.status])
+  useEffect(() => clearLongPress, [])
+
   // 排队、上传中或上传失败的附件都留在输入框，全部上传成功后才能发送
   const canSend = !importingHistory && !streaming && voice.status === 'idle' && draftReady
 
@@ -184,7 +238,19 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         onRemove={removeFile}
         onView={(id) => void editImage(id, 'preview')}
       />
-      <div className={styles.textareaWrapper}>
+      <div
+        className={styles.textareaWrapper}
+        // 长按语音挂 wrapper：录音中 textarea 隐藏（visibility:hidden 不可命中），频谱接管
+        onPointerDown={onInputPointerDown}
+        onPointerUp={clearLongPress}
+        onPointerCancel={clearLongPress}
+        onContextMenu={(event) => {
+          // 长按语音依赖长按手势，屏蔽空输入框上的原生长按菜单
+          if (isMobile && text === '') {
+            event.preventDefault()
+          }
+        }}
+      >
         <textarea
           ref={textareaRef}
           className={clsx(styles.textarea, recording && isMobile && styles.textareaHidden)}
@@ -225,7 +291,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         {/* 深度思考 / 智能搜索开关，tooltip 在按钮上方 */}
         <div className={styles.toggles}>
           <Tooltip content={t('deactivatedThinkTooltip')}>
-            <div className={clsx(styles.toggle, thinking && styles.selected)}>
+            <div className={clsx(styles.toggle, styles.thinkToggle, thinking && styles.selected)}>
               <button
                 type="button"
                 className={styles.toggleMain}
@@ -254,19 +320,6 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           </Tooltip>
         </div>
         <div className={styles.right}>
-          <VoiceButton
-            status={voice.status}
-            disabled={!voice.available}
-            seconds={voice.seconds}
-            onClick={() => {
-              if (
-                voice.status !== 'idle' ||
-                (!useChatStore.getState().importingHistory && ensureApiKey())
-              ) {
-                void voice.toggle()
-              }
-            }}
-          />
           <IconButton
             ref={attachButtonRef}
             size="m"

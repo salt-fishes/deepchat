@@ -245,17 +245,18 @@
   box-sizing: border-box;
   width: var(--sider-width, 83vw);
   padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
-  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
-  border-radius: 0 24px 24px 0;
-  background-color: var(--dsw-specific-sidebar-fill);
-  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.18);
+  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  /* 保底 24px：手势条避让不依赖安全区变量（变量失效的 ROM 上 Settings 行不贴底） */
+  padding-bottom: max(24px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  /* 历史记录页与背景同色：聊天卡片叠在其上（圆角与阴影在 .main 一侧） */
+  background-color: var(--dsw-alias-bg-base);
   overflow: hidden;
   transform: translateX(-100%);
   visibility: hidden;
   pointer-events: none;
   transition:
-    transform 0.28s var(--ds-ease-in-out),
-    visibility 0.28s var(--ds-ease-in-out);
+    transform var(--motion-page) var(--motion-ease-enter),
+    visibility var(--motion-page);
 }
 
 .drawerVisible {
@@ -277,6 +278,11 @@
   max-width: none;
   padding-top: 12px;
   border-right: none;
+  touch-action: pan-y pinch-zoom;
+
+  .list {
+    touch-action: pan-y pinch-zoom;
+  }
 
   /* 官方布局：顶部直接是搜索框，高度加大 */
   .searchBox {

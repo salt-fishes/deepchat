@@ -7,6 +7,8 @@
   flex-direction: column;
   background-color: rgba(0, 0, 0, 0.92);
   padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   /* 保底 16px：确认键即使安全区变量失效也不贴手势条 */
   padding-bottom: max(16px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   animation: cropper-in 0.15s var(--ds-ease-in-out);

@@ -268,7 +268,9 @@
 
 .toggle {
   display: inline-flex;
-  flex-shrink: 0;
+  /* 允许收缩：窄屏时文字省略而不是溢出容器压到右侧按钮上 */
+  flex-shrink: 1;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   gap: 3px;
@@ -287,6 +289,10 @@
   user-select: none;
   transition-property: border, background, color;
   transition-duration: 0.2s;
+
+  svg {
+    flex-shrink: 0;
+  }
 
   &:hover:not(:disabled) {
     background-color: var(--dsw-alias-interactive-bg-hover);
@@ -308,12 +314,22 @@
   }
 }
 
+.thinkToggle {
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+  min-width: 52px;
+}
+
 /* 深度思考药丸主体：外壳持有药丸样式，内部按钮只负责点击 */
 .toggleMain {
   display: inline-flex;
+  flex: 1;
+  height: 100%;
+  min-width: 0;
   align-items: center;
   gap: 4px;
-  padding: 0;
+  padding: 0 3px 0 8px;
   border: none;
   background-color: transparent;
   color: inherit;
@@ -323,6 +339,15 @@
   font-weight: inherit;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.toggleMain:only-child {
+  padding-right: 8px;
+}
+
+@media (max-width: 380px) {
+  .functionRow { gap: 6px; padding-inline: 8px; }
+  .toggles { gap: 6px; }
 }
 
 .right {
@@ -349,7 +374,12 @@
   cursor: pointer;
   transition:
     background 0.2s var(--ds-ease-in-out),
-    opacity 0.2s var(--ds-ease-in-out);
+    opacity 0.2s var(--ds-ease-in-out),
+    transform var(--motion-feedback) var(--motion-ease-enter);
+
+  &:not(.disabled):active {
+    transform: scale(0.93);
+  }
 
   &:not(.disabled):hover {
     background: var(--dsw-alias-button-primary-hover);

@@ -1,10 +1,10 @@
 # 封装为 Android 应用
 
-本项目通过 Capacitor 8 把静态 Web 产物（`dist/`）封装成 Android WebView 应用，包名 `com.example.chatdemo`。
+本项目通过 Capacitor 9（9.0.0-rc.0，`next` 标签）把静态 Web 产物（`dist/`）封装成 Android WebView 应用，包名 `com.example.chatdemo`。
 
 ## 环境（本机已验证）
 
-- JDK 21（需设置 `JAVA_HOME` 指向 JDK 21 安装目录；Capacitor 8 默认按 JDK 21 编译）
+- JDK 21（需设置 `JAVA_HOME` 指向 JDK 21 安装目录；Capacitor 9 默认按 JDK 21 编译）
 - Android SDK：platforms 35/36/37，build-tools 35/36/37
 - Gradle wrapper 9.7.1（本机缓存）+ AGP 9.3.1
 
@@ -69,15 +69,53 @@ adb install -r android\app\build\outputs\apk\debug\app-debug.apk
 
 约束：动画只动 `opacity/transform`；不给 `.frame`/输入框祖先加 transition；不做流式 token 级动画与 `scroll-behavior:smooth`。
 
-## 使用体验优化（2026-11-21，第五轮：edge-to-edge 按官方文档补齐）
+### 底部避让保底全覆盖（v1.9 / versionCode 10 追加）
+- 排查「底部避让消失」反馈：模拟器逐像素复测欢迎页/会话页（卡片下沿 2256/2257、手势条 2373，空白条完好），构建产物 `max(32px, var)` 链完好——聊天页保底在任何 insets 路径下数学上不可能低于 32px。
+- 全部浮层表面补齐保底（此前仅聊天页/欢迎页/剪裁器有）：**抽屉 Settings 行 `max(24px, var)`**、**设置二级页内容底部 `max(32px, var)`**、**Modal 移动端遮罩 `max(16px, var)`**、**图片查看器底栏 `calc(8px + max(12px, var))`**——覆盖安全区变量失效 ROM 上「贴到手势条」的场景。
+- 观感变化说明：v1.7 起按官方文档开启 EdgeToEdge，应用背景延伸到手势条下方（沉浸式，同官方）；与旧版「应用在手势条上方硬截止」的观感不同属预期。
 
-### 对照 Capacitor 8 SystemBars 文档复查（v1.6 / versionCode 7）
-- **`MainActivity.onCreate` 补调 `EdgeToEdge.enable(this)`**（官方文档明确建议，Capacitor 9 起框架自动调用）：Android 15+ 本就强制 edge-to-edge，但 **Android 15 以下机型不开的话窗口不延伸到系统栏下，insets 不完整下发**，SystemBars 的两条避让路径都会失效——这正是部分真机（API ≤ 34）上「底部不避让手势区」的根因。
-- `capacitor.config.ts` 显式声明 `insetsHandling: 'css'`（默认值，写明意图）：
-  - **WebView ≥ 140**（Chromium bug [40699457](https://issues.chromium.org/issues/40699457) 已修）：真 insets 透传，`env(safe-area-inset-*)` 原生可用，同时注入 `--safe-area-inset-*` 为真实值；
-  - **WebView < 140**：SystemBars 对 decorView **原生垫高**避让系统栏，注入变量按设计置 0（防止 CSS 二次避让）。
-  - 模拟器实测走的是第二条路径（全屏 914 CSS px，viewport 839，差值 75px 即状态栏+手势条原生垫高），像素测量：输入卡下沿到手势条之间共约 60 CSS px 干净空白 = 视口内固定 32px + 原生垫掉的手势条区域（窗口背景色填充）。
-- **底部空白升级为 `max(32px, 安全区变量)`**（SessionView 输入容器 / Welcome 页）：变量失效的机型保底 32px 不贴手势条；变量可用且更大时（三键导航 48px）取更大值。剪裁器全屏浮层底部同样加 `max(16px, …)` 保底，确认键不贴手势条。
+## 对齐官方交互（2026-11-21，第六轮，v1.8 / versionCode 9）
+
+### ① 顶部避让真机失效的根因
+- `insetsHandling` 从 `native` 切回 **`css`**：注入值来自**原生 WindowInsets API**（不经过 Chromium），部分 ROM 会把 WebView 的 `env(safe-area-inset-*)` 破坏为 0——passthrough 路径下没有原生垫高，CSS 又拿不到值，顶部就裸奔了；css 模式在此类设备上仍能拿到真实安全区。WebView < 140（Chromium bug 40699457）依然走 decorView 原生垫高、变量按设计置 0。
+
+### ② 历史记录页与背景同色
+- `.drawer` 背景改为 `var(--dsw-alias-bg-base)`，去掉自身圆角与阴影：**历史记录页就是背景本身，聊天页面（圆角 + 阴影在 .main 一侧）叠在其上**，与官方层级一致。
+
+### ③④ 设置改为独立二级界面
+- 移动端不再用底部弹层（Modal），改为**全屏二级页面**：右侧滑入（0.28s）、左上 ← 返回 + 标题、`padding-top: var(--safe-area-inset-top)` 避让状态栏、内容底部 `max(16px, 安全区)` 避让手势条；确认弹窗（导入覆盖 / 全部删除 / API Key 确认）仍为 Modal（z 1000 > 页面 900）叠在页面之上。
+- 返回键走 `registerOverlayToken` 弹窗关闭栈：确认弹窗后注册、栈顶优先；页面关闭保持挂载到滑出动效播完。桌面端保留原居中弹窗布局。
+
+### ⑤ 去掉麦克风按钮，长按语音输入
+- 功能行麦克风按钮移除（VoiceButton 组件删除）。
+- **空输入时在输入区按下 ≥ 450ms 自动开始录音**（频谱接管输入区、键盘收起），松开手指自动结束并转写填入输入框；录音监听挂 `window` 的 pointerup/pointercancel（手指可能滑出命中区）。
+- 长按处理挂在 `.textareaWrapper`（录音中 textarea `visibility:hidden` 不可命中）；`onContextMenu` 屏蔽空输入框的原生长按菜单；录音中再次长按可收尾（覆盖首次授权弹窗打断按住的场景）；全局收尾监听只认 recording 状态，避免把转写请求误取消。
+- 真机链路已在模拟器实测：450ms 定时 → getUserMedia 授权弹窗 → 录音（状态栏绿麦）→ 松开 → 转写（假 Key 报错 toast 为预期）。
+
+### ⑥ 深度思考胶囊重叠修复
+- 根因：`.toggle` 是 `flex-shrink: 0`，窄屏（约 360px 级）时功能行溢出，胶囊直接压到右侧按钮上。
+- `.toggle` 改 `flex-shrink: 1; min-width: 0`，`.toggleMain` 加 `min-width: 0`：窄屏时文字省略号收缩、强度箭头（flex-shrink: 0）保持可见，任何宽度都不再重叠。
+
+### 测试方法备注
+- 真实触摸测试用 `adb shell input swipe x y x y <ms>`（同点长按）。**坐标必须加 WebView 原生垫高的状态栏偏移**（模拟器 136px）：CSS y × 2.625 + 136。此前多次"长按无效"均为测试坐标偏移所致，功能本身正常。
+
+## Capacitor 9 升级 + edge-to-edge 修正（2026-11-21，第五轮，v1.7 / versionCode 8）
+
+### 升级 Capacitor 9.0.0-rc.0（v9 尚未正式发布，npm `next` 标签）
+- `@capacitor/core` / `@capacitor/android` / `@capacitor/cli` → 9.0.0-rc.0，`@capacitor/app` → 9.0.0-alpha.2；CLI 要求 Node ≥ 24（本机已满足）。AGP 9.3.1 / Gradle 9.7.1 兼容可用（v9 模板为 AGP 9.4.1 / Gradle 9.8.2，非硬性要求）；release 的 R8 本就手动开启，不受「v9 默认开 R8」影响。
+
+### v1.6 引入的界面破坏（根因与修正）
+- **根因**：`EdgeToEdge.enable(this)` 被放在 `super.onCreate` **之前**，窗口 decor 以启动主题先创建，硬塞出一个原生 ActionBar（「Chat Demo」标题条），挤掉原布局——即用户看到的「破坏了原来的界面」。
+- **修正**：按 Capacitor 9 迁移器（`migrate-edge-to-edge`）的规范位置移到 `super.onCreate` **之后**。v9 迁移器检测到已有调用会自动跳过，写法与官方一致。
+- `insetsHandling` 切到 v9 默认的 `native`：WebView ≥ 140 时 insets 透传、`env(safe-area-inset-*)` 原生可用；WebView < 140（Chromium bug [40699457](https://issues.chromium.org/issues/40699457)，env 恒为 0）走 decorView **原生垫高**，页面只吃 `max()` 保底空白。模拟器实测为原生垫高路径（全屏 914 CSS px，viewport 839），像素测量输入卡到手势条约 60 CSS px 干净空白（32px 保底 + 原生垫掉的手势条区）。
+- **底部空白 `max(32px, 安全区变量)`** 保留（SessionView 输入容器 / Welcome 页），剪裁器浮层底部 `max(16px, …)` 保底。
+
+### v9 RC 的两个坑及处理
+- **`capacitor-cordova-android-plugins` 模板 bug**：模板末尾有 `for (def func : cdvPluginPostBuildExtras)` 但未随附 `cordova.variables.gradle`，且 `cap sync` 每次先删后重建该目录（仅在项目有 Cordova 插件时才写入该文件）——无 Cordova 插件的工程直接报 `unknown property 'cdvPluginPostBuildExtras'`。**修复放在根 `build.gradle` 的 `allprojects { ext.cdvPluginPostBuildExtras = [] }`**（sync 不碰根文件，重建也无效化；未来版本补齐后本地生成文件自然覆盖）。
+- **SystemBars 重复注册告警**：v9 `@capacitor/core` 直接导出内置 `SystemBars`（含 web 实现），`theme.ts` 自行 `registerPlugin('SystemBars')` 会撞「already registered」。改为 `import { SystemBars as SystemBarsPlugin } from '@capacitor/core'`。
+
+### 验证（模拟器）
+- 欢迎页/抽屉/输入卡布局与 v1.5 逐像素一致（ActionBar 消失、汉堡回归）；logcat 无 JS 报错与注册告警；返回键关闭抽屉正常。
 
 ## 使用体验优化（2026-11-21，第四轮）
 
@@ -185,7 +223,7 @@ adb install -r android\app\build\outputs\apk\debug\app-debug.apk
 - viewport meta 加 `interactive-widget=resizes-content`（Chromium 108+）。`src/app/viewport.ts` 的 visualViewport 手动补偿保留。
 
 ### Edge-to-edge 沉浸式（P6）
-- viewport meta 加 `viewport-fit=cover` + `capacitor.config.ts` 配 `SystemBars.initialViewportFitValueHint: 'cover'`：Capacitor 8 内置 SystemBars 插件进入 CSS 透传模式（WebView ≥ 140），系统栏透出页面，安全区以 `--safe-area-inset-*` CSS 变量下发（WebView < 140 自动降级为原生垫高，底色随深浅色）。
+- viewport meta 加 `viewport-fit=cover` + `capacitor.config.ts` 配 `SystemBars.initialViewportFitValueHint: 'cover'`：Capacitor 9 内置 SystemBars 插件（insetsHandling 默认 native）在 WebView ≥ 140 时透传 insets（`env(safe-area-inset-*)` 原生可用），WebView < 140 自动降级为 decorView 原生垫高，底色随深浅色。`MainActivity` 在 `super.onCreate` 后调用 `EdgeToEdge.enable(this)`（v9 迁移器规范写法），保证 Android 15 以下机型 insets 完整下发。
 - `App.module.css` 的 `.frame` 四边吃掉安全区（`var(--safe-area-inset-*, env(...))` 回退模式，桌面浏览器为 0）；`Toast`、`ImageViewer` 工具栏同样处理。
 - `src/app/theme.ts` 通过 `registerPlugin('SystemBars')` 在应用内主题变化时同步状态栏/手势条图标颜色（LIGHT/DARK）。
 - `styles.xml`：`AppTheme` 改 DayNight；`AppTheme.NoActionBar` 加 `windowBackground`；启动屏改用 core-splashscreen 属性（`windowSplashScreenBackground` + `windowSplashScreenAnimatedIcon`），新增 `values/colors.xml` 与 `values-night/colors.xml`（浅 #FFFFFF / 深 #151517，与 Web 端底色一致），深色模式下启动屏与系统栏不再发白。

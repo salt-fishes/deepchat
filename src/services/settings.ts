@@ -20,6 +20,7 @@ type Settings = {
   ttsVoice: TtsVoice
   thinking: boolean
   thinkingEffort: ThinkingEffort
+  compactThinking: boolean
   search: boolean
   siderCollapsed: boolean
 }
@@ -32,6 +33,7 @@ const KEYS = {
   ttsVoice: 'chat-demo:tts-voice',
   thinking: 'chat-demo:thinking',
   thinkingEffort: 'chat-demo:thinking-effort',
+  compactThinking: 'chat-demo:compact-thinking',
   search: 'chat-demo:search',
   siderCollapsed: 'chat-demo:sider-collapsed',
 } as const
@@ -107,6 +109,7 @@ export const useSettings = create<Settings>(() => ({
   ttsVoice: initialTtsVoice(),
   thinking: read(KEYS.thinking) === 'true',
   thinkingEffort: initialThinkingEffort(),
+  compactThinking: read(KEYS.compactThinking) !== 'false',
   search: read(KEYS.search) === 'true',
   siderCollapsed: read(KEYS.siderCollapsed) === 'true',
 }))
@@ -145,6 +148,11 @@ export const setThinking = (thinking: boolean) => {
 export const setThinkingEffort = (thinkingEffort: ThinkingEffort) => {
   write(KEYS.thinkingEffort, thinkingEffort)
   useSettings.setState({ thinkingEffort })
+}
+
+export const setCompactThinking = (compactThinking: boolean) => {
+  write(KEYS.compactThinking, String(compactThinking))
+  useSettings.setState({ compactThinking })
 }
 
 export const setSearch = (search: boolean) => {
