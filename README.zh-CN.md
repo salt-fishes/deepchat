@@ -32,7 +32,7 @@ deepchat 是基于 [DeepSeek API](https://platform.deepseek.com/) 的聊天客�
 
 ### Android 客户端
 
-在 [Releases](https://github.com/salt-fishes/chat-demo/releases/latest) 下载 `chatdemo-release-signed.apk` 安装。应用为自签名，首次安装需允许「安装未知应用」。APK 与旧版使用同一签名证书，可直接覆盖安装。
+在 [Releases](https://github.com/salt-fishes/chat-demo/releases/latest) 下载 `deepchat-release-signed.apk` 安装。应用为自签名，首次安装需允许「安装未知应用」。包名已改为 `com.deepchat.app`，与旧版 `com.example.chatdemo` 不同，需先卸载旧版再安装。
 
 ### 从源码运行
 

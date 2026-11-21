@@ -9,8 +9,7 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
-    <!-- 运行时主题（BridgeActivity 启动即切到本主题）：底色随系统深浅色，
-         WebView < 140 走原生垫高降级路径时，系统栏区域显示该底色 -->
+    <!-- 运行时主题：原生负责留出安全区，首屏主题同步前用系统深浅色作为栏区底色。 -->
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>

@@ -32,7 +32,7 @@ Download the source archive from [Releases](https://github.com/salt-fishes/chat-
 
 ### Android app
 
-Install `chatdemo-release-signed.apk` from [Releases](https://github.com/salt-fishes/chat-demo/releases/latest). The app is self-signed, so allow installation from unknown sources when prompted. It uses the same signing certificate as earlier releases and can be installed over them.
+Install `deepchat-release-signed.apk` from [Releases](https://github.com/salt-fishes/chat-demo/releases/latest). The app is self-signed, so allow installation from unknown sources when prompted. The package name is now `com.deepchat.app` (previously `com.example.chatdemo`), so uninstall the older version before installing.
 
 ### Build from source
 

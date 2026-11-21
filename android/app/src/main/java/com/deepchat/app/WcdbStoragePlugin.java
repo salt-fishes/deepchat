@@ -1,4 +1,4 @@
-package com.example.chatdemo;
+package com.deepchat.app;
 
 import android.util.Base64;
 
@@ -206,3 +206,4 @@ public class WcdbStoragePlugin extends Plugin {
         });
     }
 }
+

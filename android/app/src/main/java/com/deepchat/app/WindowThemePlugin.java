@@ -1,4 +1,4 @@
-package com.example.chatdemo;
+package com.deepchat.app;
 
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -22,3 +22,4 @@ public class WindowThemePlugin extends Plugin {
         });
     }
 }
+

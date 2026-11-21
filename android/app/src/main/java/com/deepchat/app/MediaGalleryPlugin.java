@@ -1,4 +1,4 @@
-package com.example.chatdemo;
+package com.deepchat.app;
 
 import android.Manifest;
 import android.content.Intent;
@@ -301,3 +301,4 @@ public class MediaGalleryPlugin extends Plugin {
         }
     }
 }
+

@@ -1,14 +1,11 @@
-package com.example.chatdemo;
+package com.deepchat.app;
 
 import android.content.res.Configuration;
 import android.graphics.Color;
-import android.graphics.Rect;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 
 import androidx.activity.EdgeToEdge;
-import androidx.annotation.RequiresApi;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -16,14 +13,8 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.getcapacitor.BridgeActivity;
 
-import java.util.Collections;
-
 public class MainActivity extends BridgeActivity {
 
-    /** 左缘系统手势排除区宽度（dp）：与 Web 端抽屉手势热区一致 */
-    private static final int GESTURE_EXCLUSION_WIDTH_DP = 28;
-    /** 系统允许的最大排除区高度（dp） */
-    private static final int GESTURE_EXCLUSION_HEIGHT_DP = 200;
     private Boolean darkWindowTheme;
 
     @Override
@@ -36,18 +27,19 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         fitWebViewInsideSystemInsets();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            excludeSystemGestureZone();
-        }
     }
 
     private void fitWebViewInsideSystemInsets() {
-        View decor = getWindow().getDecorView();
+        // Scope padding to app content instead of changing the framework-owned DecorView.
+        View content = findViewById(android.R.id.content);
         int barsAndCutout = WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout();
         int ime = WindowInsetsCompat.Type.ime();
-        ViewCompat.setOnApplyWindowInsetsListener(decor, (view, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(content, (view, insets) -> {
             Insets safeArea = Insets.max(insets.getInsets(barsAndCutout), insets.getInsets(ime));
-            view.setPadding(safeArea.left, safeArea.top, safeArea.right, safeArea.bottom);
+            if (view.getPaddingLeft() != safeArea.left || view.getPaddingTop() != safeArea.top
+                || view.getPaddingRight() != safeArea.right || view.getPaddingBottom() != safeArea.bottom) {
+                view.setPadding(safeArea.left, safeArea.top, safeArea.right, safeArea.bottom);
+            }
 
             // WebView already fits within the padded window, including when the IME is visible.
             // Forward the remaining insets so the same space isn't reserved a second time.
@@ -57,7 +49,7 @@ public class MainActivity extends BridgeActivity {
                 .setVisible(ime, false)
                 .build();
         });
-        ViewCompat.requestApplyInsets(decor);
+        ViewCompat.requestApplyInsets(content);
     }
 
     void applyWindowTheme(boolean dark) {
@@ -79,23 +71,5 @@ public class MainActivity extends BridgeActivity {
             applyWindowTheme(darkWindowTheme);
         }
     }
-
-    /**
-     * 抽屉边缘滑动需要占用左缘手势：向系统声明 WebView 上左缘中部一段高度的手势排除区，
-     * 避免滑动被系统返回手势半路接管（顶部/底部仍保留给系统）。
-     * 根据 WebView 的实际布局更新排除区，旋转或键盘改变高度后重新计算。
-     */
-    @RequiresApi(Build.VERSION_CODES.Q)
-    private void excludeSystemGestureZone() {
-        final View webview = getBridge().getWebView();
-        webview.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
-            float density = getResources().getDisplayMetrics().density;
-            int width = Math.min(view.getWidth(), Math.round(GESTURE_EXCLUSION_WIDTH_DP * density));
-            int height = Math.min(view.getHeight(), Math.round(GESTURE_EXCLUSION_HEIGHT_DP * density));
-            int exclusionTop = (view.getHeight() - height) / 2;
-            view.setSystemGestureExclusionRects(
-                Collections.singletonList(new Rect(0, exclusionTop, width, exclusionTop + height))
-            );
-        });
-    }
 }
+

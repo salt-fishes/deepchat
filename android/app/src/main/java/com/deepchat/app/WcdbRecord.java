@@ -1,4 +1,4 @@
-package com.example.chatdemo;
+package com.deepchat.app;
 
 import com.tencent.wcdb.WCDBField;
 import com.tencent.wcdb.WCDBTableCoding;
@@ -20,3 +20,4 @@ public class WcdbRecord {
 
     public WcdbRecord() {}
 }
+

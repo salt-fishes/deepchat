@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.example.chatdemo',
+  appId: 'com.deepchat.app',
   appName: 'deepchat',
   webDir: 'dist',
   // Capacitor 的调试日志会记录插件调用参数，备份分块里可能包含聊天内容。

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+import { Capacitor } from '@capacitor/core'
 
 /** 窄于 768px 按移动端布局 */
 const query = window.matchMedia('not all and (min-width: 768px)')
@@ -42,13 +43,13 @@ export const usePreventPageScroll = (enabled: boolean) => {
   }, [enabled])
 }
 
-/** 移动端页面跟随视觉视口，键盘弹出后顶栏和输入框仍留在可见区域。 */
+/** 移动浏览器跟随视觉视口；Android APK 由原生窗口缩小 WebView。 */
 export const useMobileViewport = (enabled: boolean) => {
   const frameRef = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
     const frame = frameRef.current
-    if (!enabled || !frame) {
+    if (!enabled || !frame || Capacitor.getPlatform() === 'android') {
       return
     }
     const viewport = window.visualViewport

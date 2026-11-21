@@ -1,4 +1,4 @@
-package com.example.chatdemo;
+package com.deepchat.app;
 
 import com.tencent.wcdb.base.WCDBException;
 import com.tencent.wcdb.core.Database;
@@ -102,3 +102,4 @@ public final class WcdbStore {
         db.close();
     }
 }
+

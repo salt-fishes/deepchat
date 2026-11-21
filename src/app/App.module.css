@@ -82,7 +82,19 @@
     position: fixed;
     top: var(--app-viewport-top, 0px);
     bottom: auto;
-    height: var(--app-viewport-height, 100dvh);
+    height: var(--app-viewport-height, 100%);
+  }
+
+  @supports (height: 100dvh) {
+    .frame {
+      height: var(--app-viewport-height, 100dvh);
+    }
+  }
+
+  /* APK 的布局视口已随原生 WebView 缩小，不再用动态视口或 JS 调整高度。 */
+  :global(.native-safe-area) .frame {
+    inset: 0;
+    height: auto;
   }
 
   /* 推挤式抽屉：主内容右移露出圆角 sliver，抽屉在其下方（portal）滑入 */

@@ -1,4 +1,4 @@
-package com.example.chatdemo;
+package com.deepchat.app;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -250,3 +250,4 @@ public class HistoryFilePlugin extends Plugin {
         }
     }
 }
+

@@ -1,6 +1,6 @@
 # 封装为 Android 应用
 
-本项目通过 Capacitor 9（9.0.0-rc.0，`next` 标签）把静态 Web 产物（`dist/`）封装成 Android WebView 应用，包名 `com.example.chatdemo`。
+本项目通过 Capacitor 9（9.0.0-rc.0，`next` 标签）把静态 Web 产物（`dist/`）封装成 Android WebView 应用，包名 `com.deepchat.app`。
 
 ## 环境（本机已验证）
 
@@ -62,6 +62,13 @@ WcdbProbe result = database.getFirstObject(
 `Database` 来自 `com.tencent.wcdb.core`。正式表需要按访问模式定义主键和索引。批量写同一表可用 `insertObjects`，涉及会话、附件元数据等多个表的更新可在同一个事务中提交。
 
 历史 ZIP 格式可继续在 Android 和网页间交换：WCDB 中的暂存表承担校验与原子替换，与 Web 端 IndexedDB 的暂存语义一致。应用不做历史数据迁移，从首次安装起 WCDB 就是 Android 端的唯一存储。[WCDB Java/Kotlin 文档](https://github.com/Tencent/wcdb/wiki/Java%7CKotlin-%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8)
+
+## Android Edge-to-edge（当前行为）
+
+- 原生窗口绘制到系统栏下面。`MainActivity` 在应用内容容器上处理状态栏、导航栏、屏幕挖孔及软键盘的 `WindowInsets`；相交区域逐边取最大值，不将导航栏与键盘高度相加。WebView 不重复使用这些 Insets。
+- APK 内页面填充原生已缩放的 WebView。`visualViewport` 键盘适配仅用于移动浏览器；聊天输入区原有的视觉留白保留，不作为系统栏高度。
+- 抽屉仍可通过按钮或从内容区滑开，Android 左右边缘留给系统返回手势。三键导航保留 Android 默认的对比保护。
+- 如果将来需要让图片、抽屉或滚动内容真正画进系统栏，应让 WebView 全屏，并由原生提供 Insets，仅对可点击控件避让；同一边不能同时使用原生容器 padding 和网页安全区 padding。下面的历史记录描述的是此前的实现。
 
 ## 动效改造（2026-11-18）
 
@@ -288,7 +295,7 @@ cd android
   & "$env:ANDROID_HOME\build-tools\37.0.0\apksigner.bat" verify --verbose --print-certs android\app\build\outputs\apk\release\app-release.apk
   ```
 - 证书 DN：`CN=Chat Demo, OU=Dev, O=ChatDemo, L=Beijing, ST=Beijing, C=CN`；SHA-256 `e10ad0289d8be79b99b45fc5e93bb32fb664cf4dfca6b53b1b89caee2a0db9f1`
-- 注意：debug 与 release 签名不同，覆盖安装前需先 `adb uninstall com.example.chatdemo`。
+- 注意：debug 与 release 签名不同；包名已改为 `com.deepchat.app`，与旧版 `com.example.chatdemo` 不同，安装前需先 `adb uninstall com.example.chatdemo`。
 - 这是自签名证书，不属于 Google Play 官方签名，上架时需改用 Play App Signing 或正式密钥；本地分发可用。
 
 ## 已知限制
