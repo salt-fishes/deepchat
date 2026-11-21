@@ -1,3 +1,9 @@
+export const IconSpeaker24 = ({ muted }: { muted: boolean }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {muted ? <path d="M4 9H2v6h4l5 4v-6m0-4V5L8 7m7 0a7 7 0 0 1 2 5m1-8a11 11 0 0 1 2 13M3 3l18 18" /> : <path d="M3 9h4l5-4v14l-5-4H3zm13-1a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" />}
+  </svg>
+)
+
 export const IconPinOutline16 = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true"><path d="m8 15-5 6m3-9 6-2 3-6 5 5-6 3-2 6z" /></svg>
 )

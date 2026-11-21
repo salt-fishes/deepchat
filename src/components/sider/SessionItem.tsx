@@ -132,6 +132,11 @@ export const SessionItem = memo(function SessionItem({
       {selected !== undefined ? <span aria-hidden="true" className={clsx(styles.selection, selected && styles.checked)}>{selected ? <IconCheckOutline16 /> : null}</span> : null}
       <div className={styles.title}>{displayTitle}</div>
       {selected === undefined && pinned ? <IconPinOutline16 /> : null}
+      {hideActions && active && selected === undefined ? (
+        <IconButton className={styles.mobileAction} icon={<IconEllipsisOutline16 />} aria-label={t('more')}
+          aria-expanded={menuOpen} aria-haspopup="menu" onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => { event.stopPropagation(); setMenuOpen(!menuOpen) }} />
+      ) : null}
       {!hideActions && selected === undefined ? (
         <div className={styles.action} onClick={(event) => event.stopPropagation()}>
           <Menu

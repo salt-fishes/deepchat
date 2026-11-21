@@ -32,7 +32,7 @@ const getUploadRetryId = (messages: Message[], streaming: boolean) => {
 }
 import styles from './MessageList.module.css'
 
-/** 距底部小于该值时视为在底部，流式内容增长时跟随 */
+/** 距底部小于该值时视为在底部。 */
 const STICKY_THRESHOLD = 40
 const EMPTY_VERSIONS: MessageVersions = { ids: [], index: -1 }
 
@@ -53,6 +53,8 @@ export const MessageList = ({
   const contentRef = useRef<HTMLDivElement>(null)
   const stickyRef = useRef(true)
   const scrollTopRef = useRef(0)
+  const turnAnchor = useRef<string>()
+  const spacerRef = useRef<HTMLDivElement>(null)
   const restoreScrollRef = useRef<{ messageId: string; top: number } | null>(null)
   const messages = getVisibleMessages(session)
   const [previousVersions, setPreviousVersions] = useState(() =>
@@ -66,19 +68,38 @@ export const MessageList = ({
     setPreviousVersions(versions)
   }
   const lastMessageId = messages.at(-1)?.id
-  const lastMessage = messages.at(-1)
   const previousStream = useRef<{ sessionId: string; messageId?: string; streaming: boolean }>()
-  const scrollToBottom = useCallback(() => {
-    const el = scrollRef.current
-    if (el && stickyRef.current) {
-      el.scrollTop = el.scrollHeight
-      scrollTopRef.current = el.scrollTop
+  const promptId = messages.at(-2)?.role === 'user' ? messages.at(-2)?.id : undefined
+  const updateScroll = useCallback(() => {
+    const scroll = scrollRef.current
+    const spacer = spacerRef.current
+    if (!scroll || !spacer) {
+      return
     }
+    const id = turnAnchor.current
+    const prompt = id && contentRef.current?.querySelector<HTMLElement>(`[data-prompt-id="${CSS.escape(id)}"]`)
+    if (prompt) {
+      const target = Math.max(0, scroll.scrollTop + prompt.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 8)
+      const end = scroll.scrollTop + spacer.getBoundingClientRect().top - scroll.getBoundingClientRect().top
+      // 短回复也能把提问对齐顶端。回复长高时等量缩小占位，不追着正文向下滚。
+      spacer.style.height = `${Math.max(0, Math.ceil(target + scroll.clientHeight - end))}px`
+      scroll.scrollTop = target
+      scrollTopRef.current = scroll.scrollTop
+    } else if (stickyRef.current) {
+      scroll.scrollTop = scroll.scrollHeight
+      scrollTopRef.current = scroll.scrollTop
+    }
+    const bottom = scroll.getBoundingClientRect().bottom
+    setShowLatest(spacer.getBoundingClientRect().top > bottom + STICKY_THRESHOLD)
   }, [])
+  const scrollToBottom = useCallback(() => {
+    updateScroll()
+  }, [updateScroll])
 
   // 入场动画：仅同会话内新追加的末条消息、或版本切换后的新消息淡入，
   // 会话首次挂载不动画，避免整屏闪动（全局 prefers-reduced-motion 时被禁用）
   const [enteringId, setEnteringId] = useState<string | null>(null)
+  const [enteringPrompt, setEnteringPrompt] = useState<string>()
   const enteringTimerRef = useRef(0)
   const flashEntering = useCallback((id: string | null) => {
     window.clearTimeout(enteringTimerRef.current)
@@ -123,33 +144,26 @@ export const MessageList = ({
         scroll.scrollTop += switcher.getBoundingClientRect().top - anchor.top
       }
       restoreScrollRef.current = null
+      previousStream.current = { sessionId: session.id, messageId: lastMessageId, streaming }
       return
     }
-    stickyRef.current = true
-    scrollToBottom()
-  }, [session.id, lastMessageId, scrollToBottom])
-
-  useLayoutEffect(() => {
     const previous = previousStream.current
     previousStream.current = { sessionId: session.id, messageId: lastMessageId, streaming }
-    if (!previous?.streaming || streaming || previous.sessionId !== session.id ||
-        previous.messageId !== lastMessageId || !lastMessageId || !stickyRef.current ||
-        lastMessage?.role !== 'assistant' || lastMessage.status !== 'done') {
-      return
-    }
-    const scroll = scrollRef.current
-    const reply = contentRef.current?.querySelector<HTMLElement>(`[data-reply-id="${CSS.escape(lastMessageId)}"] .ds-assistant-message-main-content`)
-    if (!scroll || !reply) {
-      return
-    }
-    const target = scroll.scrollTop + reply.getBoundingClientRect().top - scroll.getBoundingClientRect().top - 8
-    if (target < scroll.scrollTop - STICKY_THRESHOLD) {
+    const changed = previous?.sessionId !== session.id || previous.messageId !== lastMessageId
+    if (streaming && promptId && (changed || !previous?.streaming)) {
+      turnAnchor.current = promptId
       stickyRef.current = false
-      scroll.scrollTop = target
-      scrollTopRef.current = scroll.scrollTop
-      setShowLatest(true)
+      setEnteringPrompt(changed ? promptId : undefined)
+    } else if (changed) {
+      turnAnchor.current = undefined
+      setEnteringPrompt(undefined)
+      stickyRef.current = true
+      if (spacerRef.current) {
+        spacerRef.current.style.height = '0px'
+      }
     }
-  }, [session.id, lastMessage, lastMessageId, streaming])
+    updateScroll()
+  }, [session.id, lastMessageId, promptId, streaming, updateScroll])
 
   useEffect(closeSearchPanel, [session.id, lastMessageId])
 
@@ -158,7 +172,11 @@ export const MessageList = ({
       if (streaming) {
         return
       }
-      restoreScrollRef.current = { messageId, top: anchorTop }
+    restoreScrollRef.current = { messageId, top: anchorTop }
+    turnAnchor.current = undefined
+    if (spacerRef.current) {
+      spacerRef.current.style.height = '0px'
+    }
       stickyRef.current = false
       closeSearchPanel()
       selectMessageVersion(session.id, messageId)
@@ -188,19 +206,17 @@ export const MessageList = ({
       el.scrollTop = scrollTopRef.current
     }
     const onScroll = () => {
-      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < STICKY_THRESHOLD
-      setShowLatest(!nearBottom)
-      // 仅在用户向上滚动时停止跟随底部，布局或内容增高时保持跟随状态。
-      if (nearBottom) {
-        stickyRef.current = true
-      } else if (el.scrollTop < scrollTopRef.current - 1) {
-        stickyRef.current = false
+      if (Math.abs(el.scrollTop - scrollTopRef.current) > 1) {
+        turnAnchor.current = undefined
+        stickyRef.current = !useChatStore.getState().streaming[session.id] &&
+          el.scrollHeight - el.scrollTop - el.clientHeight < STICKY_THRESHOLD
       }
+      setShowLatest((spacerRef.current?.getBoundingClientRect().top ?? 0) > el.getBoundingClientRect().bottom + STICKY_THRESHOLD)
       scrollTopRef.current = el.scrollTop
     }
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
-  }, [isMobile, scrollToBottom])
+  }, [isMobile, scrollToBottom, session.id])
 
   const lastIndex = messages.length - 1
   const uploadRetryId = getUploadRetryId(messages, streaming)
@@ -219,7 +235,7 @@ export const MessageList = ({
                   isFirst={index === 0}
                   isLast={index === lastIndex || index === lastIndex - 1}
                   busy={streaming}
-                  entering={message.id === enteringId}
+                  entering={message.id === enteringId || message.id === enteringPrompt}
                   versions={versions.get(message.id) ?? EMPTY_VERSIONS}
                   onSelectVersion={selectVersion}
                 />
@@ -237,10 +253,15 @@ export const MessageList = ({
                 />
               )
             )}
+            <div ref={spacerRef} aria-hidden="true" />
           </div>
         </div>
         <div className={styles.footerAnchor}>
           {showLatest ? <button type="button" className={styles.jumpLatest} aria-label={t('jumpToLatest')} onClick={() => {
+            turnAnchor.current = undefined
+            if (spacerRef.current) {
+              spacerRef.current.style.height = '0px'
+            }
             stickyRef.current = true
             scrollToBottom()
             setShowLatest(false)

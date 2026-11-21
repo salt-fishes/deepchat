@@ -11,7 +11,6 @@ import {
   IconRightUpOutline14,
   IconSearchOutline16,
   IconSearchWarningOutline16,
-  IconThinkOutline16,
 } from '../base/icons.js'
 import type { AssistantMessage } from '../../services/chat/types.js'
 import { useSettings } from '../../services/settings.js'
@@ -112,7 +111,6 @@ export const ReplyArea = memo(function ReplyArea({
     return null
   }
 
-  const stopped = !streaming && !hasResponse
   return (
     <div className={styles.area}>
       {title ? (
@@ -123,9 +121,6 @@ export const ReplyArea = memo(function ReplyArea({
           aria-expanded={mode === 'expanded'}
           onClick={() => setManual(mode === 'expanded' ? 'collapsed' : 'expanded')}
         >
-          <span className={clsx(styles.titleIcon, stopped && styles.stoppedIcon)}>
-            <IconThinkOutline16 />
-          </span>
           <span className={clsx(styles.titleText, titleActive && styles.shimmer)}>{title}</span>
           <span className={clsx(styles.chevron, mode === 'expanded' && styles.chevronExpanded)}>
             <IconChevronDownOutline14 />

@@ -6,6 +6,7 @@ import {
   IconSearchOutline16,
   IconSettingsOutline16,
   IconMultiSelect16,
+  IconEllipsisOutline16,
   IconCloseOutline16,
   IconPinOutline16,
   IconTrashOutline16,
@@ -194,7 +195,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           {t('newChat')}
         </button>
       ) : null}
-      <div className={styles.listWrap}>
+      <div className={styles.listWrap} data-fade={mobile && !managing ? 'true' : undefined}>
         <div ref={listRef} className={styles.list}>
           {filtered && filtered.length === 0 ? (
             <div className={styles.searchEmpty}>{t('searchNoResults')}</div>
@@ -261,7 +262,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
             </span>
           ) : null}
           <span className={styles.settingsIcon}>
-            <IconSettingsOutline16 />
+            {mobile ? <IconEllipsisOutline16 /> : <IconSettingsOutline16 />}
           </span>
           {!mobile ? <span className={styles.settingsLabel}>{t('settings')}</span> : null}
         </button>

@@ -49,25 +49,16 @@
 
 .chevron {
   display: flex;
+  transform: rotate(-90deg);
   transition: transform var(--ds-transition-duration) var(--ds-ease-in-out);
 }
 
 .chevronExpanded {
-  transform: rotate(180deg);
-}
-
-.titleIcon {
-  display: flex;
-  margin-right: 6px;
-  color: var(--dsw-alias-brand-primary);
-}
-
-.stoppedIcon {
-  color: var(--dsw-alias-label-tertiary);
+  transform: rotate(0deg);
 }
 
 .titleText {
-  margin-right: 6px;
+  margin-right: 10px;
   font: var(--dsw-font-markdown-base);
 }
 

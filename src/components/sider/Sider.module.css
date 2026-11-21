@@ -86,6 +86,12 @@
   margin-top: 24px;
 }
 
+.listWrap[data-fade='true']::after {
+  position: absolute; inset: auto 0 0; height: 40px; content: '';
+  background: linear-gradient(transparent, var(--dsw-alias-bg-base)); pointer-events: none;
+}
+.listWrap[data-fade='true'] .list { box-sizing: border-box; padding-bottom: 38px; }
+
 .selectionHeader, .selectionActions { display: flex; align-items: center; flex-shrink: 0; }
 .selectionHeader { min-height: 54px; justify-content: space-between; padding: 0 14px; font-size: 17px; }
 .selectionHeader > button { border-radius: 50%; background: var(--dsw-alias-interactive-bg-hover); }

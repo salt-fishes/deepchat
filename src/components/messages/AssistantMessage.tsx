@@ -4,8 +4,10 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { IconRefreshOutline16, IconWarningOutline16 } from '../base/icons.js'
 import { describeReply } from '../../services/chat/describe.js'
 import { canContinueReply } from '../../services/chat/reply.js'
-import { continueReply, regenerateReply } from '../../services/chat/store.js'
-import { stopReadAloud } from '../../services/speech/readAloud.js'
+import { continueReply, regenerateReply, useChatStore } from '../../services/chat/store.js'
+import { describeReadAloudError, stopReadAloud, toggleReadAloud, useAutoReadAloud } from '../../services/speech/readAloud.js'
+import { showToast } from '../base/toastState.js'
+import { useSettings } from '../../services/settings.js'
 import type { AssistantMessage as AssistantMessageType } from '../../services/chat/types.js'
 import { openSettings } from '../settings/settingsDialogState.js'
 import { IconButton } from '../base/IconButton.js'
@@ -71,10 +73,15 @@ export const AssistantMessage = memo(function AssistantMessage({
       return
     }
     wasStreamingRef.current = false
+    if (message.status === 'done' && answer?.text.trim() && useAutoReadAloud.getState().enabled &&
+        useSettings.getState().apiKey &&
+        useChatStore.getState().activeId === sessionId) {
+      toggleReadAloud(message.id, answer.text, (error) => showToast(describeReadAloudError(error)), true)
+    }
     setFinishedFlash(true)
     const timer = window.setTimeout(() => setFinishedFlash(false), 280)
     return () => window.clearTimeout(timer)
-  }, [streaming])
+  }, [answer?.text, message.id, message.status, sessionId, streaming])
   return (
     <div className={clsx(styles.message, entering && styles.entering)} data-reply-id={message.id}>
       {refused ? null : (

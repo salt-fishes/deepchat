@@ -2,7 +2,7 @@ import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
 import { memo, useLayoutEffect, useRef, useState } from 'react'
 import { useIsMobile } from '../../app/viewport.js'
-import { IconEditOutline16 } from '../base/icons.js'
+import { IconChevronDownOutline14, IconEditOutline16 } from '../base/icons.js'
 import { editMessage, retryUpload } from '../../services/chat/store.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
 import type { UserMessage as UserMessageType } from '../../services/chat/types.js'
@@ -46,6 +46,20 @@ export const UserMessage = memo(function UserMessage({
   const [draft, setDraft] = useState(message.content)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isMobile = useIsMobile()
+  const [expanded, setExpanded] = useState(false)
+  const [overflow, setOverflow] = useState(false)
+  const bubbleText = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const text = bubbleText.current
+    if (!text || !isMobile || expanded) {
+      return
+    }
+    const measure = () => setOverflow(text.scrollHeight > text.clientHeight + 1)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(text)
+    return () => observer.disconnect()
+  }, [editing, expanded, isMobile, message.content])
   const canSend = !busy && (draft.trim() !== '' || message.files.length > 0)
 
   useLayoutEffect(() => {
@@ -64,7 +78,7 @@ export const UserMessage = memo(function UserMessage({
   }
 
   return (
-    <div className={clsx(styles.container, isFirst && styles.isFirst, entering && styles.entering)}>
+    <div data-prompt-id={message.id} className={clsx(styles.container, isFirst && styles.isFirst, entering && styles.entering)}>
       {message.files.length > 0 ? (
         <div
           className={clsx(
@@ -115,7 +129,12 @@ export const UserMessage = memo(function UserMessage({
         </div>
       ) : (
         <>
-          {message.content ? <div className={styles.bubble}>{message.content}</div> : null}
+          {message.content ? <div className={clsx(styles.bubble, isMobile && overflow && !expanded && styles.bubbleFaded)}>
+            <div ref={bubbleText} className={clsx(isMobile && !expanded && styles.bubbleClamp)}>{message.content}</div>
+            {isMobile && (overflow || expanded) ? <button type="button" className={styles.bubbleToggle}
+              aria-expanded={expanded} aria-label={t(expanded ? 'collapsePrompt' : 'expandPrompt')}
+              onClick={() => setExpanded(!expanded)}><IconChevronDownOutline14 /></button> : null}
+          </div> : null}
           <div className={styles.bottom}>
             <div className={clsx(styles.actions, isLast && styles.alwaysShow)}>
               {message.content ? <CopyButton text={message.content} /> : null}

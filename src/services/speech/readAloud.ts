@@ -19,17 +19,46 @@ type ReadAloudState = {
 }
 
 export const useReadAloud = create<ReadAloudState>(() => ({ messageId: null, status: 'idle' }))
+export const useAutoReadAloud = create(() => ({ enabled: false }))
+let automaticContext: AudioContext | null = null
+
+export const toggleAutoReadAloud = () => {
+  if (useAutoReadAloud.getState().enabled) {
+    stopReadAloud()
+    void automaticContext?.close().catch(() => {})
+    automaticContext = null
+    useAutoReadAloud.setState({ enabled: false })
+    return
+  }
+  const context = new AudioContext({ sampleRate: TTS_SAMPLE_RATE })
+  automaticContext = context
+  useAutoReadAloud.setState({ enabled: true })
+  void context.resume().catch(() => {
+    if (automaticContext === context) {
+      automaticContext = null
+      useAutoReadAloud.setState({ enabled: false })
+      void context.close().catch(() => {})
+    }
+  })
+}
 
 /** 首帧前多缓冲一点，减少网络抖动造成的断续 */
 const START_DELAY = 0.1
 
-let current: { controller: AbortController; context: AudioContext } | null = null
+let current: { controller: AbortController; context: AudioContext; sourceNodes: Set<AudioBufferSourceNode> } | null = null
 
 const finish = (controller: AbortController) => {
   if (current?.controller !== controller) {
     return
   }
-  void current.context.close()
+  if (current.context !== automaticContext) {
+    void current.context.close().catch(() => {})
+  } else {
+    for (const source of current.sourceNodes) {
+      source.stop()
+      source.disconnect()
+    }
+  }
   current = null
   useReadAloud.setState({ messageId: null, status: 'idle' })
 }
@@ -80,7 +109,8 @@ export const describeReadAloudError = (error: unknown): TranslationMessage | str
 export const toggleReadAloud = (
   messageId: string,
   text: string,
-  onError: (error: unknown) => void
+  onError: (error: unknown) => void,
+  automatic = false
 ) => {
   const reading = useReadAloud.getState().messageId
   stopReadAloud()
@@ -88,8 +118,12 @@ export const toggleReadAloud = (
     return
   }
   const controller = new AbortController()
-  const context = new AudioContext({ sampleRate: TTS_SAMPLE_RATE })
-  current = { controller, context }
+  const context = automatic ? automaticContext : new AudioContext({ sampleRate: TTS_SAMPLE_RATE })
+  if (!context) {
+    return
+  }
+  const sourceNodes = new Set<AudioBufferSourceNode>()
+  current = { controller, context, sourceNodes }
   useReadAloud.setState({ messageId, status: 'loading' })
   // 音色在开始朗读时读取，设置中切换后下一次朗读生效
   const { apiKey, ttsVoice } = useSettings.getState()
@@ -104,6 +138,9 @@ export const toggleReadAloud = (
       controller.signal.addEventListener('abort', () => void reader.cancel().catch(() => {}))
       for (;;) {
         const { done, value } = await reader.read()
+        if (controller.signal.aborted) {
+          return
+        }
         if (done) {
           break
         }
@@ -120,6 +157,8 @@ export const toggleReadAloud = (
         const source = context.createBufferSource()
         source.buffer = buffer
         source.connect(context.destination)
+        sourceNodes.add(source)
+        source.onended = () => sourceNodes.delete(source)
         // 网络慢于播放时从当前时间续上，不补播过去的时间
         nextTime = Math.max(nextTime, context.currentTime + (lastSource ? 0 : START_DELAY))
         source.start(nextTime)
@@ -129,8 +168,9 @@ export const toggleReadAloud = (
           useReadAloud.setState({ status: 'playing' })
         }
       }
-      if (lastSource) {
-        lastSource.onended = () => finish(controller)
+      if (lastSource && sourceNodes.has(lastSource)) {
+        const finalSource = lastSource
+        finalSource.onended = () => { sourceNodes.delete(finalSource); finish(controller) }
       } else {
         finish(controller)
       }
