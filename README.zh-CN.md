@@ -1,8 +1,8 @@
-# chat-demo
+# deepchat
 
 [English](README.md) | 简体中文
 
-基于 [DeepSeek API](https://platform.deepseek.com/) 的静态聊天示例，同时提供 Android 客户端。**无需自建后端**：浏览器或 App 直接请求配置的 API 服务。
+deepchat 是基于 [DeepSeek API](https://platform.deepseek.com/) 的聊天客户端，提供 Web 与 Android 版本。**无需自建后端**：浏览器或 App 直接请求配置的 API 服务。
 
 - [在线体验](https://salt-fishes.github.io/chat-demo/)
 - [下载 Android APK](https://github.com/salt-fishes/chat-demo/releases/latest)
@@ -55,7 +55,7 @@ pnpm build
 
 ## 数据与隐私
 
-API Key 和设置保存在浏览器 `localStorage`，会话及附件原件保存在 IndexedDB，按浏览器配置和站点源隔离。发送消息、上传附件或使用语音功能时，相关内容会提交给所配置的 API 服务。
+API Key 和设置保存在浏览器 `localStorage`。Web 端会话及附件原件保存在 IndexedDB；Android 端默认使用原生 WCDB 单表存储（`id + json + blob`），不再依赖 IndexedDB。发送消息、上传附件或使用语音功能时，相关内容会提交给所配置的 API 服务。
 
 设置中的历史导入导出使用 ZIP：导入经确认与校验后替换全部本地会话和附件；导出包含会话与本地可用图片原件，不含 API Key、设置和非图片附件原件。详见[历史导入导出格式](src/services/chat/history/README.md)。
 

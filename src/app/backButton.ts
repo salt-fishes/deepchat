@@ -3,6 +3,10 @@ import { App } from '@capacitor/app'
 import { closeImageViewer, useImageViewer } from '../components/messages/imageViewerState.js'
 import { closeTopmostModal } from '../components/base/Modal.js'
 import { closeSearchPanel, useSearchPanel } from '../components/search/searchPanelState.js'
+import {
+  closeConversationSearch,
+  useConversationSearch,
+} from '../components/search/conversationSearchState.js'
 import { closeMobileSider, useMobileSider } from '../components/sider/mobileSiderState.js'
 
 /**
@@ -16,6 +20,10 @@ export const registerBackButton = () => {
   const handle = App.addListener('backButton', () => {
     if (useImageViewer.getState().image !== null) {
       closeImageViewer()
+      return
+    }
+    if (useConversationSearch.getState().open) {
+      closeConversationSearch()
       return
     }
     if (closeTopmostModal()) {

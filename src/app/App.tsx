@@ -12,6 +12,7 @@ import {
   useChatStore,
 } from '../services/chat/store.js'
 import { SearchPanel } from '../components/search/SearchPanel.js'
+import { ConversationSearch } from '../components/search/ConversationSearch.js'
 import { closeSearchPanel } from '../components/search/searchPanelState.js'
 import { SessionView } from '../components/session/SessionView.js'
 import { MobileHeader } from '../components/session/MobileHeader.js'
@@ -169,6 +170,7 @@ export const App = () => {
           onClick={closeMobileSider}
         />
       ) : null}
+      <ConversationSearch />
       <SettingsDialog />
       <Toast />
       <ImageViewer />

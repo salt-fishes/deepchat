@@ -1,7 +1,10 @@
+import { Capacitor } from '@capacitor/core'
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { toSessionSummary, type Session, type SessionSummary } from './types.js'
+import type { WcdbItem, WcdbRef } from './wcdb.js'
+import * as wcdb from './wcdb.js'
 
-/** IndexedDB 存储结构版本；新增或调整存储、索引时递增。 */
+/** IndexedDB 存储结构版本；仅 Web 端使用。 */
 const DB_VERSION = 11
 
 /** 文件原件按附件的本地 id 存储，所有引用同一 id 的消息共用一份；用于缩略图、打开查看，以及没有 serverId 时补传。 */
@@ -23,10 +26,7 @@ interface ChatDB extends DBSchema {
   }
   /** 当前使用的文件原件 */
   files: { key: string; value: StoredFile }
-  /**
-   * 历史导入的暂存：导入过程中会话与原件只写入这两个存储，`sessions` / `files` 保持不变；
-   * 全部校验通过后在一个事务中替换正式数据并清空暂存，失败时只清空暂存。
-   */
+  /** 历史导入的暂存：校验通过后原子替换正式数据 */
   sessionsStaging: { key: string; value: Session }
   filesStaging: { key: string; value: StoredFile }
 }
@@ -52,11 +52,9 @@ const abortTransaction = (tx: { abort(): void }) => {
   }
 }
 
-// 每个操作拿到连接后立即创建事务；IndexedDB 按创建顺序执行范围重叠的事务，读取总能看到之前发起的写入。
 const getDB = () =>
   (dbPromise ??= openDB<ChatDB>('chat-demo', DB_VERSION, {
     upgrade(db, _oldVersion, _newVersion, tx) {
-      // 初始化当前格式需要的存储与索引，不迁移旧消息。
       for (const name of ['sessions', 'files', 'sessionsStaging', 'filesStaging'] as const) {
         if (!db.objectStoreNames.contains(name)) {
           db.createObjectStore(name, { keyPath: 'id' })
@@ -70,18 +68,19 @@ const getDB = () =>
       }
     },
   }).catch((error: unknown) => {
-    // 打开失败后允许界面重试，避免一直复用已拒绝的 Promise。
     dbPromise = null
     throw error
   }))
 
-export const loadSessionSummaries = async (): Promise<SessionSummary[]> =>
+/* ------------------------------ IndexedDB 实现（Web） ------------------------------ */
+
+const idbLoadSessionSummaries = async (): Promise<SessionSummary[]> =>
   (await (await getDB()).getAll('sessionSummaries')).map(toSessionSummary)
 
-export const loadSession = async (id: string): Promise<Session | undefined> =>
+const idbLoadSession = async (id: string): Promise<Session | undefined> =>
   (await getDB()).get('sessions', id)
 
-export const saveSession = async (session: Session, files: StoredFile[] = []): Promise<void> => {
+const idbSaveSession = async (session: Session, files: StoredFile[] = []): Promise<void> => {
   const summary = storedSummary(session)
   const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
   await Promise.all([
@@ -101,8 +100,7 @@ export const saveSession = async (session: Session, files: StoredFile[] = []): P
   ])
 }
 
-/** 未打开的会话也可重命名，只读取该会话，原子更新详情和列表。 */
-export const renameSession = async (id: string, title: string): Promise<void> => {
+const idbRenameSession = async (id: string, title: string): Promise<void> => {
   const tx = (await getDB()).transaction(['sessions', 'sessionSummaries'], 'readwrite')
   await Promise.all([
     (async () => {
@@ -123,8 +121,7 @@ export const renameSession = async (id: string, title: string): Promise<void> =>
   ])
 }
 
-/** 删除会话，仅清理已无会话引用的本地原件；远端文件不删。 */
-export const deleteSession = async (sessionId: string): Promise<void> => {
+const idbDeleteSession = async (sessionId: string): Promise<void> => {
   const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
   await Promise.all([
     (async () => {
@@ -147,18 +144,17 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
   ])
 }
 
-const putFiles = async (store: 'files' | 'filesStaging', files: StoredFile[]) => {
+const idbPutFiles = async (store: 'files' | 'filesStaging', files: StoredFile[]) => {
   const tx = (await getDB()).transaction(store, 'readwrite')
   await Promise.all([...files.map((file) => tx.store.put(file)), tx.done])
 }
 
-export const saveFiles = (files: StoredFile[]): Promise<void> => putFiles('files', files)
+const idbSaveFiles = (files: StoredFile[]): Promise<void> => idbPutFiles('files', files)
 
-export const loadFile = async (id: string): Promise<Blob | undefined> =>
+const idbLoadFile = async (id: string): Promise<Blob | undefined> =>
   (await (await getDB()).get('files', id))?.blob
 
-/** 清空导入暂存：开始导入前清除上次中断（如关闭页面）遗留的数据，导入失败后清除本次写入。 */
-export const clearStaging = async (): Promise<void> => {
+const idbClearStaging = async (): Promise<void> => {
   const tx = (await getDB()).transaction(['sessionsStaging', 'filesStaging'], 'readwrite')
   await Promise.all([
     tx.objectStore('sessionsStaging').clear(),
@@ -167,15 +163,29 @@ export const clearStaging = async (): Promise<void> => {
   ])
 }
 
-export const addStagingSession = async (session: Session): Promise<void> => {
-  await (await getDB()).add('sessionsStaging', session)
+const idbAddStagingSessions = async (sessions: Session[]): Promise<void> => {
+  const tx = (await getDB()).transaction('sessionsStaging', 'readwrite')
+  await Promise.all([
+    (async () => {
+      try {
+        for (const session of sessions) {
+          await tx.store.add(session)
+        }
+      } catch (error) {
+        abortTransaction(tx)
+        throw error
+      }
+    })(),
+    tx.done,
+  ])
 }
 
-export const saveStagingFiles = (files: StoredFile[]): Promise<void> =>
-  putFiles('filesStaging', files)
+const idbSaveStagingFiles = (files: StoredFile[]): Promise<void> => idbPutFiles('filesStaging', files)
 
-/** 图片位于会话 JSON 之后；全部读完后回填具体 MIME，保留归档给出的 isImage 标识。 */
-export const updateStagingFileTypes = async (types: ReadonlyMap<string, string>): Promise<void> => {
+const idbUpdateStagingFileTypes = async (types: ReadonlyMap<string, string>): Promise<void> => {
+  if (!Array.from(types.values()).some(Boolean)) {
+    return
+  }
   const tx = (await getDB()).transaction('sessionsStaging', 'readwrite')
   await Promise.all([
     (async () => {
@@ -203,11 +213,7 @@ export const updateStagingFileTypes = async (types: ReadonlyMap<string, string>)
   ])
 }
 
-/**
- * 导入完成后用暂存替换正式数据：同一事务中替换会话、摘要和原件，并清空暂存。
- * 逐条游标复制，同一时间只读取一条记录；事务失败时整体回滚，正式数据不变。
- */
-export const commitStaging = async (): Promise<SessionSummary[]> => {
+const idbCommitStaging = async (): Promise<SessionSummary[]> => {
   const summaries: SessionSummary[] = []
   const tx = (await getDB()).transaction(
     ['sessions', 'sessionSummaries', 'files', 'sessionsStaging', 'filesStaging'],
@@ -243,6 +249,204 @@ export const commitStaging = async (): Promise<SessionSummary[]> => {
   // 直接返回本次提交的列表，调用方无需在替换成功后再发起可能失败的读取。
   return summaries
 }
+
+/* ------------------------------ WCDB 实现（Android） ------------------------------ */
+
+const KIND = {
+  session: 's',
+  summary: 'm',
+  file: 'f',
+  stagingSession: 'ss',
+  stagingFile: 'fs',
+} as const
+
+/** WCDB 是 Android 端的唯一存储，不做任何历史数据迁移。 */
+const ensureReady = async (): Promise<void> => wcdb.ready()
+
+const parseSession = (item: WcdbItem): Session | null => {
+  if (!item.json) {
+    return null
+  }
+  try {
+    return JSON.parse(item.json) as Session
+  } catch {
+    return null
+  }
+}
+
+const wcdbLoadSessionSummaries = async (): Promise<SessionSummary[]> => {
+  await ensureReady()
+  const items = await wcdb.getAll(KIND.summary)
+  return items
+    .map((item) => (item.json ? (JSON.parse(item.json) as StoredSessionSummary) : null))
+    .filter((summary): summary is StoredSessionSummary => Boolean(summary))
+    .map(toSessionSummary)
+}
+
+const wcdbLoadSession = async (id: string): Promise<Session | undefined> => {
+  await ensureReady()
+  const item = await wcdb.get(KIND.session, id)
+  return parseSession(item ?? { kind: KIND.session, id }) ?? undefined
+}
+
+const wcdbSaveSession = async (session: Session, files: StoredFile[] = []): Promise<void> => {
+  await ensureReady()
+  const items: WcdbItem[] = [
+    { kind: KIND.session, id: session.id, json: JSON.stringify(session) },
+    { kind: KIND.summary, id: session.id, json: JSON.stringify(storedSummary(session)) },
+  ]
+  for (const file of files) {
+    items.push(await wcdb.fileToItem(KIND.file, file))
+  }
+  await wcdb.put(items)
+}
+
+const wcdbRenameSession = async (id: string, title: string): Promise<void> => {
+  await ensureReady()
+  const session = parseSession(await wcdb.get(KIND.session, id) ?? { kind: KIND.session, id })
+  if (!session) {
+    return
+  }
+  session.title = title
+  await wcdb.put([
+    { kind: KIND.session, id, json: JSON.stringify(session) },
+    { kind: KIND.summary, id, json: JSON.stringify(storedSummary(session)) },
+  ])
+}
+
+const wcdbDeleteSession = async (sessionId: string): Promise<void> => {
+  await ensureReady()
+  const summary = await wcdb.get(KIND.summary, sessionId)
+  const fileIds = summary?.json
+    ? (JSON.parse(summary.json) as StoredSessionSummary).fileIds
+    : []
+  const others = await wcdb.getAll(KIND.summary)
+  const referenced = new Set(
+    others
+      .filter((item) => item.id !== sessionId && item.json)
+      .flatMap((item) => (JSON.parse(item.json as string) as StoredSessionSummary).fileIds)
+  )
+  const keys: WcdbRef[] = [
+    { kind: KIND.session, id: sessionId },
+    { kind: KIND.summary, id: sessionId },
+    ...fileIds
+      .filter((id) => !referenced.has(id))
+      .map((id) => ({ kind: KIND.file, id })),
+  ]
+  await wcdb.remove(keys)
+}
+
+const wcdbSaveFiles = async (files: StoredFile[]): Promise<void> => {
+  await ensureReady()
+  await wcdb.put(await Promise.all(files.map((file) => wcdb.fileToItem(KIND.file, file))))
+}
+
+const wcdbLoadFile = async (id: string): Promise<Blob | undefined> => {
+  await ensureReady()
+  const item = await wcdb.get(KIND.file, id)
+  return item?.blob ? wcdb.itemToFile(item).blob : undefined
+}
+
+const wcdbClearStaging = async (): Promise<void> => {
+  await ensureReady()
+  await wcdb.clear([KIND.stagingSession, KIND.stagingFile])
+}
+
+const wcdbAddStagingSessions = async (sessions: Session[]): Promise<void> => {
+  await ensureReady()
+  await wcdb.put(
+    sessions.map((session) => ({
+      kind: KIND.stagingSession,
+      id: session.id,
+      json: JSON.stringify(session),
+    }))
+  )
+}
+
+const wcdbSaveStagingFiles = async (files: StoredFile[]): Promise<void> => {
+  await ensureReady()
+  await wcdb.put(await Promise.all(files.map((file) => wcdb.fileToItem(KIND.stagingFile, file))))
+}
+
+const wcdbUpdateStagingFileTypes = async (types: ReadonlyMap<string, string>): Promise<void> => {
+  await ensureReady()
+  if (!Array.from(types.values()).some(Boolean)) {
+    return
+  }
+  const items = await wcdb.getAll(KIND.stagingSession)
+  const updated: WcdbItem[] = []
+  for (const item of items) {
+    const session = parseSession(item)
+    if (!session) {
+      continue
+    }
+    let changed = false
+    for (const message of session.messages) {
+      if (message.role !== 'user') {
+        continue
+      }
+      for (const file of message.files) {
+        const type = types.get(file.id) ?? ''
+        if (file.mimeType !== type) {
+          file.mimeType = type
+          changed = true
+        }
+      }
+    }
+    if (changed) {
+      updated.push({ kind: KIND.stagingSession, id: item.id, json: JSON.stringify(session) })
+    }
+  }
+  await wcdb.put(updated)
+}
+
+const wcdbCommitStaging = async (): Promise<SessionSummary[]> => {
+  await ensureReady()
+  const [sessions, files] = await Promise.all([
+    wcdb.getAll(KIND.stagingSession),
+    wcdb.getAll(KIND.stagingFile),
+  ])
+  const items: WcdbItem[] = []
+  const summaries: SessionSummary[] = []
+  for (const item of sessions) {
+    if (!item.json) {
+      continue
+    }
+    const summary = storedSummary(JSON.parse(item.json) as Session)
+    items.push({ kind: KIND.session, id: item.id, json: item.json })
+    items.push({ kind: KIND.summary, id: item.id, json: JSON.stringify(summary) })
+    summaries.push(toSessionSummary(summary))
+  }
+  for (const item of files) {
+    items.push({ kind: KIND.file, id: item.id, blob: item.blob })
+  }
+  await wcdb.commit(
+    [KIND.session, KIND.summary, KIND.file],
+    items,
+    [
+      ...sessions.map((item) => ({ kind: KIND.stagingSession, id: item.id })),
+      ...files.map((item) => ({ kind: KIND.stagingFile, id: item.id })),
+    ]
+  )
+  return summaries
+}
+
+/* ------------------------------ 平台分派 ------------------------------ */
+
+const native = Capacitor.getPlatform() === 'android'
+
+export const loadSessionSummaries = native ? wcdbLoadSessionSummaries : idbLoadSessionSummaries
+export const loadSession = native ? wcdbLoadSession : idbLoadSession
+export const saveSession = native ? wcdbSaveSession : idbSaveSession
+export const renameSession = native ? wcdbRenameSession : idbRenameSession
+export const deleteSession = native ? wcdbDeleteSession : idbDeleteSession
+export const saveFiles = native ? wcdbSaveFiles : idbSaveFiles
+export const loadFile = native ? wcdbLoadFile : idbLoadFile
+export const clearStaging = native ? wcdbClearStaging : idbClearStaging
+export const addStagingSessions = native ? wcdbAddStagingSessions : idbAddStagingSessions
+export const saveStagingFiles = native ? wcdbSaveStagingFiles : idbSaveStagingFiles
+export const updateStagingFileTypes = native ? wcdbUpdateStagingFileTypes : idbUpdateStagingFileTypes
+export const commitStaging = native ? wcdbCommitStaging : idbCommitStaging
 
 /** 本地存储失败不打断对话，只在控制台留痕 */
 export const reportStorageError = (action: string) => (error: unknown) => {

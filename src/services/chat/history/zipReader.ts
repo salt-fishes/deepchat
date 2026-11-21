@@ -4,6 +4,19 @@ const READ_CHUNK_BYTES = 256 * 1024
 // 控制每轮同步解压的工作量；输出交给调用方保存后才继续读取。
 const INFLATE_CHUNK_BYTES = 8 * 1024
 
+export type ArchiveSource = {
+  name: string
+  size: number
+  read: (start: number, length: number) => Promise<Uint8Array>
+  close?: () => Promise<void>
+}
+
+export const archiveFromFile = (file: File): ArchiveSource => ({
+  name: file.name,
+  size: file.size,
+  read: async (start, length) => new Uint8Array(await file.slice(start, start + length).arrayBuffer()),
+})
+
 /** ZIP 结构损坏或使用了不支持的特性 */
 export class ArchiveError extends Error {
   constructor() {
@@ -17,8 +30,8 @@ const invalid = (): never => {
 }
 
 /** 本地文件头签名 PK\x03\x04，用于在解析前区分 ZIP 与其他文件。 */
-export const isZipFile = async (file: File) => {
-  const bytes = new Uint8Array(await file.slice(0, 4).arrayBuffer())
+export const isZipFile = async (file: ArchiveSource) => {
+  const bytes = await file.read(0, Math.min(4, file.size))
   return bytes.length === 4 && bytes.every((byte, index) => byte === [0x50, 0x4b, 3, 4][index])
 }
 
@@ -32,11 +45,11 @@ const crcTable = Uint32Array.from({ length: 256 }, (_, value) => {
   return crc >>> 0
 })
 
-const readBytes = async (file: File, start: number, length: number) => {
+const readBytes = async (file: ArchiveSource, start: number, length: number) => {
   if (start < 0 || length < 0 || start + length > file.size) {
     invalid()
   }
-  const bytes = new Uint8Array(await file.slice(start, start + length).arrayBuffer())
+  const bytes = length === 0 ? new Uint8Array() : await file.read(start, length)
   if (bytes.length !== length) {
     invalid()
   }
@@ -85,7 +98,7 @@ type Entry = {
   offset: number
 }
 
-const readDirectory = async (file: File): Promise<{ entries: Entry[]; offset: number }> => {
+const readDirectory = async (file: ArchiveSource): Promise<{ entries: Entry[]; offset: number }> => {
   if (file.size < 22) {
     invalid()
   }
@@ -177,7 +190,7 @@ const readDirectory = async (file: File): Promise<{ entries: Entry[]; offset: nu
   return { entries: entries.sort((a, b) => a.offset - b.offset), offset }
 }
 
-const readEntryOffset = async (file: File, entry: Entry, boundary: number) => {
+const readEntryOffset = async (file: ArchiveSource, entry: Entry, boundary: number) => {
   if (entry.offset + 30 > boundary) {
     invalid()
   }
@@ -238,8 +251,11 @@ export type ArchiveEntry = {
  * 按条目在文件中的物理顺序逐条、逐块解压，跳过目录条目。
  * 调用方必须消费完当前条目的数据，再请求下一个条目。
  */
-export async function* readArchive(file: File): AsyncGenerator<ArchiveEntry> {
-  const directory = await readDirectory(file)
+async function* readEntries(
+  file: ArchiveSource,
+  directory: Awaited<ReturnType<typeof readDirectory>>,
+  onRead?: (offset: number, total: number) => void
+): AsyncGenerator<ArchiveEntry> {
   for (const [index, entry] of directory.entries.entries()) {
     const boundary = directory.entries[index + 1]?.offset ?? directory.offset
     const start = await readEntryOffset(file, entry, boundary)
@@ -270,6 +286,7 @@ export async function* readArchive(file: File): AsyncGenerator<ArchiveEntry> {
           start + offset,
           Math.min(READ_CHUNK_BYTES, entry.compressedSize - offset)
         )
+        onRead?.(start + offset + chunk.length, directory.offset)
         if (!inflate) {
           append(chunk)
           yield* pending.splice(0)
@@ -296,6 +313,12 @@ export async function* readArchive(file: File): AsyncGenerator<ArchiveEntry> {
       invalid()
     }
   }
+}
+
+/** 预检与正式导入各自读取条目，但共用同一份已验证的中央目录。 */
+export const openArchive = async (file: ArchiveSource) => {
+  const directory = await readDirectory(file)
+  return (onRead?: (offset: number, total: number) => void) => readEntries(file, directory, onRead)
 }
 
 /** 读出整个条目：会话 JSON 需要完整解析，图片需要识别类型后整张保存。 */

@@ -202,6 +202,24 @@ export const IconNewChatOutline20 = () => (
   </svg>
 )
 
+/** 搜索结果列表中的会话图标：圆形消息气泡。 */
+export const IconChatOutline24 = () => (
+  <svg width={24} height={24} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H8.9L4.6 21.2a.7.7 0 0 1-1.1-.6V17A7.5 7.5 0 0 1 11 4h1.5A7.5 7.5 0 0 1 20 11.5Z"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinejoin="round"
+    />
+    <path
+      d="M8 9.5h7M8 13h4.5"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+    />
+  </svg>
+)
+
 export const IconPanelLeftOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path

@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import {
   IconArrowLeftOutline16,
@@ -17,8 +17,11 @@ import {
   clearHistory,
   exportHistory,
   importHistory,
+  type HistoryProgress,
 } from '../../services/chat/backup.js'
 import { useIsMobile } from '../../app/viewport.js'
+import { pickBackup, saveBackup, savesHistoryNatively } from '../../services/chat/history/saveBackup.js'
+import { archiveFromFile, type ArchiveSource } from '../../services/chat/history/zipReader.js'
 import { useChatStore } from '../../services/chat/store.js'
 import { regionCodes, getRegionName, provinces, reverseGeocode } from '../../services/location.js'
 import { IconButton } from '../base/IconButton.js'
@@ -47,9 +50,17 @@ import styles from './Settings.module.css'
  */
 export const SettingsDialog = () => {
   const open = useSettingsDialog((state) => state.open)
+  const historyImport = useHistoryImport()
+  const cancelImport = historyImport.cancel
+  const historyExport = useHistoryExport()
   const [retained, setRetained] = useState(open)
   const surfaceRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
+  useEffect(() => {
+    if (!open) {
+      cancelImport()
+    }
+  }, [cancelImport, open])
   useLayoutEffect(() => {
     const surface = surfaceRef.current
     if (!surface) {
@@ -77,7 +88,13 @@ export const SettingsDialog = () => {
   }, [isMobile, open])
 
   return open || retained ? (
-    <SettingsContent closing={!open} isMobile={isMobile} surfaceRef={surfaceRef} />
+    <SettingsContent
+      closing={!open}
+      isMobile={isMobile}
+      surfaceRef={surfaceRef}
+      historyImport={historyImport}
+      historyExport={historyExport}
+    />
   ) : null
 }
 
@@ -124,20 +141,22 @@ const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode
   { value: 'data', label: 'settingDialogAsideDataOptionLabel', icon: <IconDataOutline16 /> },
 ]
 
-const SettingsContent = ({ closing, isMobile, surfaceRef }: {
+const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, historyExport }: {
   closing: boolean
   isMobile: boolean
   surfaceRef: RefObject<HTMLDivElement>
+  historyImport: ReturnType<typeof useHistoryImport>
+  historyExport: ReturnType<typeof useHistoryExport>
 }) => {
   const t = useTranslate()
   // 打开时按调用方指定的分组选中，之后在界面内切换
   const [section, setSection] = useState(() => useSettingsDialog.getState().section)
   // 切换分组不丢失正在输入的 API Key 与导入状态
   const apiKeyEditor = useApiKeyEditor()
-  const historyImport = useHistoryImport()
   const historyDelete = useHistoryDelete()
   const replacingHistory = useChatStore((state) => state.importingHistory)
-  const historyBusy = historyImport.busy || historyDelete.busy || replacingHistory
+  const historyBusy = historyImport.progress !== null || historyExport.progress !== null ||
+    historyDelete.busy || replacingHistory
   const body = (
     <>
       <div role="tablist" className={styles.navigation}>
@@ -168,7 +187,7 @@ const SettingsContent = ({ closing, isMobile, surfaceRef }: {
           <>
             <ApiKeyField editor={apiKeyEditor} />
             <ImportHistory historyImport={historyImport} disabled={historyBusy} />
-            <ExportHistory disabled={historyBusy} />
+            <ExportHistory historyExport={historyExport} disabled={historyBusy} />
             <SettingCell
               label={t('deleteAllSessions')}
               status={null}
@@ -468,6 +487,7 @@ const ImportConfirm = ({
       }
     >
       <div className={styles.importConfirmText}>{t('historyImportConfirmDescription')}</div>
+      <div className={styles.importFileName}>{historyImport.file?.name}</div>
     </Modal>
   )
 }
@@ -564,12 +584,14 @@ const SettingCell = ({
   label,
   description,
   status,
+  progress,
   action,
   className,
 }: {
   label: string
   description?: string
   status: Status
+  progress?: HistoryProgress | null
   action: ReactNode
   className?: string
 }) => {
@@ -578,8 +600,11 @@ const SettingCell = ({
     <div className={clsx(styles.cell, styles.row, className)}>
       <div className={styles.text}>
         <div className={styles.label}>{label}</div>
-        {status || description ? (
-          <div className={clsx(styles.description, status && styles.statusIn, status?.error && styles.error)}>
+        {progress ? <HistoryProgressBar progress={progress} /> : status || description ? (
+          <div
+            className={clsx(styles.description, status && styles.statusIn, status?.error && styles.error)}
+            role={status ? 'status' : undefined}
+          >
             {status
               ? t(status.key, status.reason ? { message: t(status.reason) } : status.params)
               : description}
@@ -591,12 +616,77 @@ const SettingCell = ({
   )
 }
 
-/** 选文件后先提示覆盖；确认后才检查文件并执行导入，任何错误都提示导入失败。 */
+const HistoryProgressBar = ({ progress }: { progress: HistoryProgress }) => {
+  const t = useTranslate()
+  let label: string
+  let value: number | undefined
+  switch (progress.phase) {
+    case 'opening':
+      label = t('historyOpening')
+      break
+    case 'checking':
+      label = t('historyChecking')
+      break
+    case 'preparing':
+      label = t('historyPreparing')
+      break
+    case 'replacing':
+      label = t('historyReplacing')
+      break
+    case 'choosing':
+      label = t('historyChoosingDestination')
+      break
+    case 'saving':
+      value = progress.percent
+      label = t('historySaving', { percent: value })
+      break
+    case 'reading':
+    case 'images':
+      value = progress.percent
+      label = t(progress.phase === 'reading' ? 'historyReading' : 'historyWritingImages', {
+        percent: value,
+      })
+      break
+    case 'sessions':
+      value = progress.total ? (progress.completed / progress.total) * 100 : undefined
+      label = t('historyWritingSessions', { completed: progress.completed, total: progress.total })
+      break
+  }
+  return (
+    <div className={styles.description}>
+      <div>{label}</div>
+      <progress className={styles.historyProgress} aria-label={label} max={100} value={value} />
+    </div>
+  )
+}
+
+/** 选文件后先提示覆盖，确认后检查归档并执行导入。 */
 const useHistoryImport = () => {
-  const [file, setFile] = useState<File | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [file, setFile] = useState<ArchiveSource | null>(null)
+  const [progress, setProgress] = useState<HistoryProgress | null>(null)
   const [status, setStatus] = useState<Status>(null)
   const importing = useRef(false)
+  const cancel = useCallback(() => {
+    void file?.close?.().catch(() => {})
+    setFile(null)
+  }, [file])
+
+  const choose = async () => {
+    if (importing.current) {
+      return
+    }
+    importing.current = true
+    setProgress({ phase: 'opening' })
+    setStatus(null)
+    try {
+      setFile(await pickBackup())
+    } catch (error) {
+      setStatus(errorStatus('historyImportFailed', error))
+    } finally {
+      importing.current = false
+      setProgress(null)
+    }
+  }
 
   const confirm = async () => {
     if (!file || importing.current) {
@@ -604,20 +694,21 @@ const useHistoryImport = () => {
     }
     importing.current = true
     setFile(null)
-    setBusy(true)
+    setProgress({ phase: 'checking' })
     setStatus(null)
     try {
-      const count = await importHistory(file)
+      const count = await importHistory(file, setProgress)
       setStatus({ key: count === 1 ? 'historyImportedOne' : 'historyImported', params: { count } })
-    } catch {
-      setStatus({ key: 'historyImportFailed', error: true })
+    } catch (error) {
+      setStatus(errorStatus('historyImportFailed', error))
     } finally {
+      await file.close?.().catch(() => {})
       importing.current = false
-      setBusy(false)
+      setProgress(null)
     }
   }
 
-  return { file, busy, status, select: setFile, cancel: () => setFile(null), confirm }
+  return { file, progress, status, select: setFile, choose, cancel, confirm }
 }
 
 /** 导入 = 覆盖：用选中文件替换本地全部会话与附件。 */
@@ -636,6 +727,7 @@ const ImportHistory = ({
       label={t('historyImport')}
       description={t('historyImportDescription')}
       status={historyImport.status}
+      progress={historyImport.progress}
       action={
         <>
           <Button
@@ -643,7 +735,13 @@ const ImportHistory = ({
             size="m"
             className={clsx(styles.cellButton, styles.uploadButton)}
             disabled={disabled}
-            onClick={() => inputRef.current?.click()}
+            onClick={() => {
+              if (savesHistoryNatively()) {
+                void historyImport.choose()
+              } else {
+                inputRef.current?.click()
+              }
+            }}
           >
             <IconUploadOutline14 />
             {t('upload')}
@@ -657,7 +755,7 @@ const ImportHistory = ({
               const file = event.target.files?.[0]
               event.target.value = ''
               if (file) {
-                historyImport.select(file)
+                historyImport.select(archiveFromFile(file))
               }
             }}
           />
@@ -667,46 +765,66 @@ const ImportHistory = ({
   )
 }
 
-/** 将全部会话及图片导出为 ZIP 文件并下载 */
-const ExportHistory = ({ disabled }: { disabled: boolean }) => {
-  const t = useTranslate()
-  const empty = useChatStore((state) => state.sessions.length === 0)
-  const [busy, setBusy] = useState(false)
+const useHistoryExport = () => {
+  const [progress, setProgress] = useState<HistoryProgress | null>(null)
   const [status, setStatus] = useState<Status>(null)
+  const exporting = useRef(false)
 
-  const onExport = async () => {
-    setBusy(true)
+  const download = async () => {
+    if (exporting.current) {
+      return
+    }
+    exporting.current = true
+    setProgress({ phase: 'sessions', completed: 0, total: useChatStore.getState().sessions.length })
     setStatus(null)
     try {
-      const { name, blob } = await exportHistory()
+      const { name, blob } = await exportHistory(setProgress)
+      if (savesHistoryNatively()) {
+        setProgress({ phase: 'choosing' })
+        const saved = await saveBackup(name, blob, (percent) => setProgress({ phase: 'saving', percent }))
+        setStatus({ key: saved ? 'historySaved' : 'historySaveCancelled' })
+        return
+      }
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       link.download = name
       link.click()
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      setStatus({ key: 'historyDownloadStarted' })
     } catch (error) {
       setStatus(errorStatus('historyExportFailed', error))
     } finally {
-      setBusy(false)
+      exporting.current = false
+      setProgress(null)
     }
   }
+  return { progress, status, download }
+}
 
+/** 将全部会话及图片导出为 ZIP 文件并下载 */
+const ExportHistory = ({ historyExport, disabled }: {
+  historyExport: ReturnType<typeof useHistoryExport>
+  disabled: boolean
+}) => {
+  const t = useTranslate()
+  const empty = useChatStore((state) => state.sessions.length === 0)
   return (
     <SettingCell
       label={t('exportAllLabel')}
       description={t('historyExportDescription')}
-      status={status}
+      status={historyExport.status}
+      progress={historyExport.progress}
       action={
         <Button
           variant="outlined"
           size="m"
           className={styles.cellButton}
-          disabled={disabled || busy || empty}
-          onClick={() => void onExport()}
+          disabled={disabled || empty}
+          onClick={() => void historyExport.download()}
         >
           <IconDownloadOutline16 />
-          {t('exportAllDownload')}
+          {t(savesHistoryNatively() ? 'historySave' : 'exportAllDownload')}
         </Button>
       }
     />

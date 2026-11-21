@@ -16,6 +16,7 @@ import { IconButton } from '../base/IconButton.js'
 import { Modal } from '../base/Modal.js'
 import { showToast } from '../base/toastState.js'
 import { openSettings } from '../settings/settingsDialogState.js'
+import { openConversationSearch } from '../search/conversationSearchState.js'
 import { useMobileSider } from './mobileSiderState.js'
 import { SessionItem } from './SessionItem.js'
 import styles from './Sider.module.css'
@@ -89,18 +90,31 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           />
         </div>
       ) : null}
-      <div className={styles.searchBox}>
-        <span className={styles.searchIcon}>
-          <IconSearchOutline16 />
-        </span>
-        <input
-          className={styles.searchInput}
-          value={query}
-          placeholder={t('searchSessions')}
-          aria-label={t('searchSessions')}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </div>
+      {mobile ? (
+        <button
+          type="button"
+          className={clsx(styles.searchBox, styles.searchButton)}
+          onClick={openConversationSearch}
+        >
+          <span className={styles.searchIcon}>
+            <IconSearchOutline16 />
+          </span>
+          <span className={styles.searchPlaceholder}>{t('searchSessions')}</span>
+        </button>
+      ) : (
+        <div className={styles.searchBox}>
+          <span className={styles.searchIcon}>
+            <IconSearchOutline16 />
+          </span>
+          <input
+            className={styles.searchInput}
+            value={query}
+            placeholder={t('searchSessions')}
+            aria-label={t('searchSessions')}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+      )}
       {!mobile ? (
         <button
           type="button"

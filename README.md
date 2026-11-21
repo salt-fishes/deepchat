@@ -1,8 +1,8 @@
-# chat-demo
+# deepchat
 
 English | [简体中文](README.zh-CN.md)
 
-A static chat client for the [DeepSeek API](https://platform.deepseek.com/), with an Android app built from the same sources. **No backend required**: the browser or app talks directly to the configured API service.
+deepchat is a chat client for the [DeepSeek API](https://platform.deepseek.com/), available on Web and Android. **No backend required**: the browser or app talks directly to the configured API service.
 
 - [Live demo](https://salt-fishes.github.io/chat-demo/)
 - [Download the Android APK](https://github.com/salt-fishes/chat-demo/releases/latest)
@@ -55,7 +55,7 @@ The output is written to `dist/`. See [ANDROID.md](ANDROID.md) for Android packa
 
 ## Data and privacy
 
-API keys and settings are stored in the browser's `localStorage`; conversations and original attachments live in IndexedDB, isolated by browser profile and site origin. Sending messages, uploading attachments and using speech features sends the relevant content to the configured API service.
+API keys and settings are stored in the browser's `localStorage`. On Web, conversations and original attachments live in IndexedDB; on Android they are stored natively in WCDB (a single `id + json + blob` table) and IndexedDB is not used. Sending messages, uploading attachments and using speech features sends the relevant content to the configured API service.
 
 History import/export in Settings uses ZIP archives. After confirmation and validation, importing replaces all local conversations and attachments. Exports contain conversations and locally available original images, but exclude API keys, settings and original non-image attachments. See the [history format documentation (Chinese)](src/services/chat/history/README.md).
 

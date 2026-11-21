@@ -1,4 +1,5 @@
 import * as db from '../db.js'
+import type { Session } from '../types.js'
 import { BackupError, fail } from './errors.js'
 import type { SessionIndexEntry } from './format.js'
 import { INDEX_PATH, MANIFEST_PATH, USER_PATH, parseSessionPath, sessionFilesDir } from './paths.js'
@@ -7,11 +8,15 @@ import { toLocalSession } from './toLocal.js'
 import {
   ArchiveError,
   isZipFile,
-  readArchive,
+  openArchive,
   readEntry,
   skipEntry,
   type ArchiveEntry,
+  type ArchiveSource,
 } from './zipReader.js'
+
+const STAGING_BATCH_ENTRIES = 32
+const STAGING_BATCH_BYTES = 4 * 1024 * 1024
 
 /** 从原件字节补充图片 MIME；无法识别时为空字符串，图片身份仍由归档的 is_image 决定。 */
 const imageType = (bytes: Uint8Array): string => {
@@ -54,34 +59,36 @@ const readJson = async (entry: ArchiveEntry): Promise<unknown> => {
  * 检查 ZIP 格式、首个 manifest 条目及格式版本。
  * 校验失败时保留正在生成的回答和现有暂存数据。
  */
-export const checkArchiveFormat = async (file: File): Promise<void> => {
+export const checkArchiveFormat = async (file: ArchiveSource) => {
   if (!(await isZipFile(file))) {
     fail('backupUnrecognized')
   }
   try {
-    for await (const entry of readArchive(file)) {
+    const archive = await openArchive(file)
+    for await (const entry of archive()) {
       if (entry.path !== MANIFEST_PATH) {
         fail('backupUnrecognized')
       }
       checkManifest(await readJson(entry))
-      return
+      return archive
     }
   } catch (error) {
     throw error instanceof ArchiveError ? new BackupError('backupIncomplete') : error
   }
-  fail('backupUnrecognized')
+  return fail('backupUnrecognized')
 }
 
 /**
  * 流式导入：manifest → user（不导入）→ 全部会话 JSON → index → 全部图片。
  * 也支持会话与图片交错排列、index 位于末尾的条目顺序。
- * 会话读完立即暂存，只保留图片路径映射；图片全部读完后逐会话回填 MIME，不改变图片身份。
+ * 会话和图片分批暂存，图片全部读完后逐会话回填 MIME，不改变图片身份。
  * 写入导入暂存存储；调用方负责先清空暂存，成功后替换正式数据，失败时清理暂存。
  */
-export const importArchive = async (file: File): Promise<void> => {
-  if (!(await isZipFile(file))) {
-    fail('backupUnrecognized')
-  }
+export const importArchive = async (
+  archive: Awaited<ReturnType<typeof openArchive>>,
+  onRead?: (offset: number, total: number) => void,
+  onFinalize?: () => void
+): Promise<void> => {
   const imported = new Set<string>()
   const images = new Map<string, string>()
   /** 已保存的原件：文件 ID → MIME。同一图片出现在多个会话目录时只保存一次。 */
@@ -89,6 +96,22 @@ export const importArchive = async (file: File): Promise<void> => {
   let manifest = false
   let index: SessionIndexEntry[] | undefined
   let currentSessionId: string | undefined
+  let sessions: Session[] = []
+  let files: db.StoredFile[] = []
+  let batchBytes = 0
+
+  const flush = async () => {
+    // 顺序提交，失败后的清理不会与仍在写入的另一批数据交错。
+    if (sessions.length) {
+      await db.addStagingSessions(sessions)
+      sessions = []
+    }
+    if (files.length) {
+      await db.saveStagingFiles(files)
+      files = []
+    }
+    batchBytes = 0
+  }
 
   const saveImage = async (entry: ArchiveEntry, id: string) => {
     if (stored.has(id)) {
@@ -97,13 +120,17 @@ export const importArchive = async (file: File): Promise<void> => {
     }
     const data = await readEntry(entry)
     const type = imageType(new Uint8Array(await data.slice(0, 16).arrayBuffer()))
-    await db.saveStagingFiles([{ id, blob: new Blob([data], { type }) }])
+    files.push({ id, blob: new Blob([data], { type }) })
+    batchBytes += data.size
     stored.set(id, type)
   }
 
   try {
-    for await (const entry of readArchive(file)) {
+    for await (const entry of archive(onRead)) {
       const { path } = entry
+      if (batchBytes + entry.size > STAGING_BATCH_BYTES) {
+        await flush()
+      }
       const sessionId = parseSessionPath(path)
       if (!manifest) {
         if (path !== MANIFEST_PATH) {
@@ -124,7 +151,8 @@ export const importArchive = async (file: File): Promise<void> => {
         for (const [imagePath, id] of local.images) {
           images.set(imagePath, id)
         }
-        await db.addStagingSession(local.session)
+        sessions.push(local.session)
+        batchBytes += entry.size
       } else if (path === INDEX_PATH && !index) {
         index = readSessionIndex(await readJson(entry))
       } else if (
@@ -137,6 +165,9 @@ export const importArchive = async (file: File): Promise<void> => {
         await (id === undefined ? skipEntry(entry) : saveImage(entry, id))
       } else {
         fail('backupIncomplete')
+      }
+      if (sessions.length + files.length >= STAGING_BATCH_ENTRIES || batchBytes >= STAGING_BATCH_BYTES) {
+        await flush()
       }
     }
   } catch (error) {
@@ -155,5 +186,7 @@ export const importArchive = async (file: File): Promise<void> => {
   ) {
     fail('backupIncomplete')
   }
+  onFinalize?.()
+  await flush()
   await db.updateStagingFileTypes(stored)
 }

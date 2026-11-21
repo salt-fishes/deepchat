@@ -40,6 +40,29 @@ adb install -r android\app\build\outputs\apk\debug\app-debug.apk
 - `proguard-android.txt` 改为 `proguard-android-optimize.txt`，release 已开启 `minifyEnabled` + `shrinkResources`（R8；Capacitor AAR 自带 consumer rules）。
 - Gradle 与 AGP 版本改为本机缓存中已验证的版本，避免重复下载。
 
+## WCDB 2.1.15 接入方式
+
+Android 端所有会话、摘要、附件原件和导入暂存都存进原生 WCDB，IndexedDB 仅用于 Web 端。会话与摘要以 JSON 文本保存，附件原件以 BLOB 保存；`WcdbRecord`（`@WCDBTableCoding`，主键 `id`）由注解处理器生成 `DBWcdbRecord`。`WcdbStore` 提供按 kind 的读写和事务批量操作，`WcdbStoragePlugin` 把它们暴露给 Web 层。数据库文件位于应用私有目录 `files/deepchat.db`。
+
+`android/app/build.gradle` 已配置 `main`、`annotation` 和 Java `annotationProcessor`。用 `@WCDBTableCoding` 声明模型，再用 `@WCDBField` 标记需要持久化的字段。编译器会从 `WcdbProbe.java` 生成 `DBWcdbProbe`，供建表和类型安全查询使用。以下示例在 Android 后台线程运行，数据库放在应用私有目录。
+
+```java
+Database database = new Database(new java.io.File(context.getFilesDir(), "wcdb-probe.db").getPath());
+database.createTable("probe", DBWcdbProbe.INSTANCE);
+
+WcdbProbe row = new WcdbProbe();
+row.id = 1;
+row.content = "hello";
+database.insertObject(row, DBWcdbProbe.allFields(), "probe");
+WcdbProbe result = database.getFirstObject(
+    DBWcdbProbe.allFields(), "probe", DBWcdbProbe.id.eq(1)
+);
+```
+
+`Database` 来自 `com.tencent.wcdb.core`。正式表需要按访问模式定义主键和索引。批量写同一表可用 `insertObjects`，涉及会话、附件元数据等多个表的更新可在同一个事务中提交。
+
+历史 ZIP 格式可继续在 Android 和网页间交换：WCDB 中的暂存表承担校验与原子替换，与 Web 端 IndexedDB 的暂存语义一致。应用不做历史数据迁移，从首次安装起 WCDB 就是 Android 端的唯一存储。[WCDB Java/Kotlin 文档](https://github.com/Tencent/wcdb/wiki/Java%7CKotlin-%E5%BF%AB%E9%80%9F%E5%85%A5%E9%97%A8)
+
 ## 动效改造（2026-11-18）
 
 按四轮调研（扫描 → 评估 → 审核 → 查漏补缺）的结论落地，分两批：
@@ -105,7 +128,7 @@ adb install -r android\app\build\outputs\apk\debug\app-debug.apk
 - `@capacitor/core` / `@capacitor/android` / `@capacitor/cli` → 9.0.0-rc.0，`@capacitor/app` → 9.0.0-alpha.2；CLI 要求 Node ≥ 24（本机已满足）。AGP 9.3.1 / Gradle 9.7.1 兼容可用（v9 模板为 AGP 9.4.1 / Gradle 9.8.2，非硬性要求）；release 的 R8 本就手动开启，不受「v9 默认开 R8」影响。
 
 ### v1.6 引入的界面破坏（根因与修正）
-- **根因**：`EdgeToEdge.enable(this)` 被放在 `super.onCreate` **之前**，窗口 decor 以启动主题先创建，硬塞出一个原生 ActionBar（「Chat Demo」标题条），挤掉原布局——即用户看到的「破坏了原来的界面」。
+- **根因**：`EdgeToEdge.enable(this)` 被放在 `super.onCreate` **之前**，窗口 decor 以启动主题先创建，硬塞出一个原生 ActionBar（旧版「Chat Demo」标题条），挤掉原布局——即用户看到的「破坏了原来的界面」。
 - **修正**：按 Capacitor 9 迁移器（`migrate-edge-to-edge`）的规范位置移到 `super.onCreate` **之后**。v9 迁移器检测到已有调用会自动跳过，写法与官方一致。
 - `insetsHandling` 切到 v9 默认的 `native`：WebView ≥ 140 时 insets 透传、`env(safe-area-inset-*)` 原生可用；WebView < 140（Chromium bug [40699457](https://issues.chromium.org/issues/40699457)，env 恒为 0）走 decorView **原生垫高**，页面只吃 `max()` 保底空白。模拟器实测为原生垫高路径（全屏 914 CSS px，viewport 839），像素测量输入卡到手势条约 60 CSS px 干净空白（32px 保底 + 原生垫掉的手势条区）。
 - **底部空白 `max(32px, 安全区变量)`** 保留（SessionView 输入容器 / Welcome 页），剪裁器浮层底部 `max(16px, …)` 保底。

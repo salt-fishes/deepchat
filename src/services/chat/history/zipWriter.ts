@@ -38,32 +38,16 @@ const entryName = (name: string) => {
   return { name: normalized, byteLength: bytes.length }
 }
 
-/** STORE 流式写入；成品必须能再次导入。 */
-export const writeArchive = async (entries: { name: string; blob: Blob }[]): Promise<Blob> => {
-  if (entries.length >= ZIP64_COUNT) {
-    throw new ArchiveLimitError()
-  }
+type ZipEntry = { name: string; blob: Blob }
+
+/** STORE 逐条写入，维持 ZIP32 限制与归档路径校验。 */
+export const writeArchive = async (
+  entries: Iterable<ZipEntry> | AsyncIterable<ZipEntry>,
+  onWrite?: (bytes: number) => void
+): Promise<Blob> => {
   const names = new Set<string>()
   let dataSize = 0
   let directorySize = 0
-  const prepared = entries.map(({ name, blob }) => {
-    const normalized = entryName(name)
-    if (names.has(normalized.name)) {
-      invalid()
-    }
-    names.add(normalized.name)
-    if (blob.size >= ZIP64_SIZE) {
-      throw new ArchiveLimitError()
-    }
-    dataSize += blob.size + 46 + normalized.byteLength
-    directorySize += 46 + normalized.byteLength
-    if (dataSize >= ZIP64_SIZE || directorySize >= ZIP64_SIZE) {
-      throw new ArchiveLimitError()
-    }
-    return { name: normalized.name, blob }
-  })
-
-  const expectedSize = dataSize + directorySize + 22
   const chunks: Blob[] = []
   let size = 0
   let completed = false
@@ -72,15 +56,22 @@ export const writeArchive = async (entries: { name: string; blob: Blob }[]): Pro
       throw error
     }
     size += chunk.byteLength
-    if (size > expectedSize) {
-      invalid()
-    }
     chunks.push(new Blob([chunk]))
     completed = final
   })
   try {
-    for (const { name, blob } of prepared) {
-      const entry = new ZipPassThrough(name)
+    for await (const { name, blob } of entries) {
+      const normalized = entryName(name)
+      if (names.has(normalized.name)) {
+        invalid()
+      }
+      names.add(normalized.name)
+      dataSize += blob.size + 46 + normalized.byteLength
+      directorySize += 46 + normalized.byteLength
+      if (names.size >= ZIP64_COUNT || dataSize >= ZIP64_SIZE || directorySize >= ZIP64_SIZE) {
+        throw new ArchiveLimitError()
+      }
+      const entry = new ZipPassThrough(normalized.name)
       entry.mtime = new Date(1980, 0, 1)
       zip.add(entry)
       const reader = blob.stream().getReader()
@@ -96,6 +87,7 @@ export const writeArchive = async (entries: { name: string; blob: Blob }[]): Pro
             invalid()
           }
           entry.push(value)
+          onWrite?.(value.byteLength)
         }
         if (written !== blob.size) {
           invalid()
@@ -107,7 +99,7 @@ export const writeArchive = async (entries: { name: string; blob: Blob }[]): Pro
       }
     }
     zip.end()
-    if (!completed || size !== expectedSize) {
+    if (!completed || size !== dataSize + directorySize + 22) {
       invalid()
     }
     return new Blob(chunks, { type: 'application/zip' })

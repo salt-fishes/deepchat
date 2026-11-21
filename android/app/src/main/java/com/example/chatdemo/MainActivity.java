@@ -30,7 +30,9 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // 自定义插件需在 Bridge 初始化前注册
         registerPlugin(MediaGalleryPlugin.class);
+        registerPlugin(HistoryFilePlugin.class);
         registerPlugin(WindowThemePlugin.class);
+        registerPlugin(WcdbStoragePlugin.class);
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         fitWebViewInsideSystemInsets();

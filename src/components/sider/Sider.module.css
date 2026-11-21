@@ -211,6 +211,22 @@
   flex-shrink: 0;
 }
 
+.searchButton {
+  width: 100%;
+  border: none;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.searchPlaceholder {
+  flex: 1;
+  min-width: 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 16px;
+  line-height: 22px;
+}
+
 .searchInput {
   flex: 1;
   min-width: 0;

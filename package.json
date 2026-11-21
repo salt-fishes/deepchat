@@ -1,7 +1,7 @@
 {
-  "name": "chat-demo",
-  "version": "0.1.1",
-  "description": "基于 DeepSeek API 的静态聊天示例。",
+  "name": "deepchat",
+  "version": "1.11.0",
+  "description": "基于 DeepSeek API 的聊天客户端，提供 Web 与 Android 版本。",
   "license": "MIT",
   "private": true,
   "type": "module",

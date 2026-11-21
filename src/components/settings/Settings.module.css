@@ -280,6 +280,21 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+.historyProgress {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: 8px;
+  margin-top: 4px;
+  accent-color: var(--dsw-alias-brand-primary);
+}
+
+.importFileName {
+  margin-top: 8px;
+  color: var(--dsw-alias-label-tertiary);
+  overflow-wrap: anywhere;
+}
+
 .error {
   font-size: 12px;
   line-height: 18px;
