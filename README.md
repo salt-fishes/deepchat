@@ -2,13 +2,41 @@
 
 English | [简体中文](README.zh-CN.md)
 
-A static chat demo powered by the DeepSeek API. No application backend is required: the browser connects directly to the configured API service.
+A static chat client for the [DeepSeek API](https://platform.deepseek.com/), with an Android app built from the same sources. **No backend required**: the browser or app talks directly to the configured API service.
 
-You can [try the app online](https://salt-fishes.github.io/chat-demo/) or download the archive from [Releases](https://github.com/salt-fishes/chat-demo/releases), extract it, and double-click `index.html` to use it locally without installation or a build. Enter your API key in Settings before your first chat.
+- [Live demo](https://salt-fishes.github.io/chat-demo/)
+- [Download the Android APK](https://github.com/salt-fishes/chat-demo/releases/latest)
+- [Android build and integration notes](ANDROID.md)
 
-## Getting started
+Enter your own API key under **Settings → API Key** on first use.
 
-Install Node.js 22.12+ and pnpm, then run:
+## Features
+
+- **Conversations**: multiple sessions with automatic titles, renaming and deletion; edit prompts, regenerate replies, switch message branches, stop generation and continue eligible replies.
+- **Thinking and search**: deep thinking with three effort levels, web search, link reading and source citations. Thinking is collapsed into a live preview by default and can be turned off in Settings.
+- **Attachments**: upload, paste or drag files. On Android, take photos, pick recent images and crop freely.
+- **Voice**: press and hold an empty input to record and transcribe; replies can be read aloud.
+- **Rendering**: Markdown, syntax highlighting, KaTeX math and Mermaid diagrams. Long replies are revealed in small batches as they stream.
+- **Interface**: English and Simplified Chinese, light/dark/system themes, mobile layout, location settings and ZIP history import/export.
+- **Interaction**: swipe right from any page to open the conversation list on Android, with edge-to-edge support, keyboard avoidance and respect for the system "reduce motion" setting.
+
+## Quick start
+
+### Use it online
+
+Open the [live demo](https://salt-fishes.github.io/chat-demo/) and enter your API key in Settings.
+
+### Run the static page locally
+
+Download the source archive from [Releases](https://github.com/salt-fishes/chat-demo/releases), or build `dist/` and open `dist/index.html` directly. When opened via `file://`, the browser and the API service must allow storage and cross-origin requests from local pages; serving `dist/` from a static server is more reliable.
+
+### Android app
+
+Install `chatdemo-release-signed.apk` from [Releases](https://github.com/salt-fishes/chat-demo/releases/latest). The app is self-signed, so allow installation from unknown sources when prompted. It uses the same signing certificate as earlier releases and can be installed over them.
+
+### Build from source
+
+Install Node.js 22.12+ and pnpm:
 
 ```sh
 git clone https://github.com/salt-fishes/chat-demo.git
@@ -17,61 +45,51 @@ pnpm install
 pnpm dev
 ```
 
-Open http://localhost:8090.
-
-To build the static site:
+Open http://localhost:8090. Build the static site with:
 
 ```sh
 pnpm build
 ```
 
-The output is written to `dist/`. Deploy it to a static web server or open `dist/index.html` directly. Opening the file directly requires browser support for storage on `file://` pages and an API service that permits their cross-origin requests.
+The output is written to `dist/`. See [ANDROID.md](ANDROID.md) for Android packaging commands and platform details.
 
-## Features
+## Data and privacy
 
-- Multiple conversations with automatic titles, renaming, and deletion; edit prompts, regenerate replies, and switch between message branches.
-- Streaming replies, deep thinking, smart search, link reading, and source citations; stop generation or continue eligible replies.
-- Upload, paste, or drag and drop attachments; use voice input and read replies aloud. A live audio spectrum appears in the first row of the input area while recording on mobile.
-- Markdown, syntax highlighting, KaTeX math, and Mermaid diagrams.
-- Simplified Chinese and English, light and dark themes, mobile layouts, location settings, and chat history import and export.
+API keys and settings are stored in the browser's `localStorage`; conversations and original attachments live in IndexedDB, isolated by browser profile and site origin. Sending messages, uploading attachments and using speech features sends the relevant content to the configured API service.
 
-## Data and storage
+History import/export in Settings uses ZIP archives. After confirmation and validation, importing replaces all local conversations and attachments. Exports contain conversations and locally available original images, but exclude API keys, settings and original non-image attachments. See the [history format documentation (Chinese)](src/services/chat/history/README.md).
 
-Your API key and settings are stored in the browser's localStorage. Conversations and original attachments are stored in IndexedDB. Local data is isolated by browser profile and site origin. Sending messages, uploading attachments, and using speech features sends the relevant content to the configured API service.
-
-History import and export in Settings use ZIP archives. After confirmation and successful validation, importing replaces all local conversations and attachments. Exports include conversations and locally available original images, but exclude API keys, settings, and original non-image attachments. See the [history import/export documentation (Chinese)](src/services/chat/history/README.md) for the archive format and preservation details.
-
-Settings → Data → Delete all chats clears all local conversations, original attachments, and unsent drafts after confirmation. It stops ongoing replies and returns to a new chat. Your API key and settings are preserved; files already uploaded to the API service are not deleted.
+**Settings → Data → Delete all chats** clears all local conversations, original attachments and unsent drafts after confirmation, stops ongoing replies and returns to a new chat. Your API key and settings are preserved; files already uploaded to the API service are not deleted.
 
 ## Development
 
-| Command       | Description                  |
-| ------------- | ---------------------------- |
-| `pnpm dev`    | Start the development server |
-| `pnpm build`  | Build into `dist/`           |
-| `pnpm type`   | Run TypeScript type checks   |
-| `pnpm lint`   | Lint with oxlint             |
-| `pnpm format` | Format with oxfmt            |
+| Command | Description |
+| --- | --- |
+| `pnpm dev` | Start the development server |
+| `pnpm build` | Build into `dist/` |
+| `pnpm apk` | Build the web app and an Android debug APK |
+| `pnpm type` | Run TypeScript type checks |
+| `pnpm lint` | Lint with oxlint |
+| `pnpm format` | Format with oxfmt |
 
-[rspack.config.ts](rspack.config.ts) uses `https://api.deepseek.com` by default. Use `createConfig({ apiOrigin, devServer })` to customize the API origin and development server proxy.
-
-Chat uses `deepseek-flash` by default through Anthropic-compatible Messages / Files APIs. Speech features use ASR / TTS endpoints. Requests include extensions for search, link reading, titles, and `latest_reminder`, so the configured service must support the corresponding capabilities. Supported attachment formats are determined by server-side validation.
+[rspack.config.ts](rspack.config.ts) connects to `https://api.deepseek.com` by default; use `createConfig({ apiOrigin, devServer })` to customize it. Chat uses `deepseek-flash` through Anthropic-compatible Messages / Files APIs and speech uses ASR / TTS endpoints. Search, link reading, titles and `latest_reminder` require a service that implements those extensions; attachment formats are validated by the server.
 
 ```text
 src/
-  app/                 Application layout, themes, and global styles
-  components/          Chat, settings, Markdown, and other UI components
+  app/                 Layout, themes, gestures and global styles
+  components/          Chat, input, settings, Markdown and other UI
   i18n/                English and Chinese translations
   services/
-    api/               API requests, SSE, and protocol types
-    chat/              Conversations, message branches, storage, and history import/export
-    markdown/          Markdown parsing, syntax highlighting, and diagrams
-    speech/            Audio recording and read-aloud playback
+    api/               API requests, SSE and protocol types
+    chat/              Conversations, branches, storage and history archives
+    markdown/          Parsing, highlighting, diagrams and streaming reveal
+    speech/            Recording and read-aloud playback
   utils/               Shared utilities
+android/               Capacitor Android shell (see ANDROID.md)
 ```
 
 ## License
 
-[MIT](LICENSE). The build copies the license to `dist/LICENSE`; include it when distributing the app. Third-party dependencies are subject to their own licenses.
+[MIT](LICENSE). The build copies the license to `dist/LICENSE`; please include it when distributing. Third-party dependencies are subject to their own licenses.
 
-Based on [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo), with Android packaging via Capacitor added.
+Based on [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo), with an Android shell, interaction, performance and visual improvements added.
