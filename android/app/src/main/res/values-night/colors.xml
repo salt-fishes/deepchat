@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色模式底色，与 Web 端主题变量 static-neutral-bluish-950 一致 -->
+    <color name="windowBackground">#151517</color>
+    <color name="splashBackground">#151517</color>
+</resources>

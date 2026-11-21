@@ -1,0 +1,119 @@
+.frame {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  background-color: var(--dsw-alias-bg-base);
+  /* Android APK 沉浸式：SystemBars 注入 --safe-area-inset-*；浏览器回退 env()（桌面为 0），背景自然延伸到系统栏下 */
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+}
+
+.main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  /* 不透明底色：推挤抽屉打开时挡住抽屉自身阴影，卡片边缘只留下压向抽屉的阴影（同官方） */
+  background-color: var(--dsw-alias-bg-base);
+}
+
+/* 推挤式抽屉手势层：左缘打开热区与打开后的 sliver 点击层（仅移动端渲染） */
+.drawerEdge {
+  position: fixed;
+  /* 从汉堡按钮下方开始，避免盖住左上角菜单入口 */
+  top: 110px;
+  bottom: 0;
+  left: 0;
+  z-index: 763;
+  /* 28px：与原生层声明的系统手势排除区等宽，左缘中部可从边缘直接滑出抽屉 */
+  width: 28px;
+  touch-action: none;
+  user-select: none;
+}
+
+.sliverHit {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: var(--sider-width, 83vw);
+  right: 0;
+  z-index: 762;
+  /* 常驻挂载（手势 hook 需要稳定的 ref）；仅抽屉打开时拦截点击 */
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.sliverActive {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.saveError {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  color: var(--dsw-alias-label-primary);
+  background-color: var(--dsw-alias-bg-base);
+  font-size: 14px;
+}
+
+.loadingView {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.loadingState {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 14px;
+  text-align: center;
+}
+
+@media not all and (min-width: 768px) {
+  .frame {
+    position: fixed;
+    top: var(--app-viewport-top, 0px);
+    bottom: auto;
+    height: var(--app-viewport-height, 100dvh);
+  }
+
+  /* 推挤式抽屉：主内容右移露出圆角 sliver，抽屉在其下方（portal）滑入 */
+  .main {
+    z-index: 761;
+    transition: transform 0.28s var(--ds-ease-in-out);
+    /* 纵向滚动交给原生，横向让给全页抽屉手势（useDrawerGesture 的主内容拖动） */
+    touch-action: pan-y;
+  }
+
+  .mainPushed {
+    transform: translateX(var(--sider-width, 83vw));
+    overflow: hidden;
+    border-radius: 20px 0 0 20px;
+    box-shadow: -12px 0 28px rgba(0, 0, 0, 0.14);
+  }
+
+  .mainNoTransition {
+    transition: none;
+  }
+}

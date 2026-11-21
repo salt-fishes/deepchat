@@ -1,0 +1,68 @@
+.container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--message-list-max-width);
+  margin: auto;
+  padding: 0 32px 64px;
+}
+
+.greeting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 21px;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--dsw-alias-label-primary);
+  animation: greeting-in 0.24s var(--ds-ease-in-out);
+}
+
+@keyframes greeting-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (max-width: 439px) {
+  .greeting {
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 500;
+  }
+}
+
+@media not all and (min-width: 768px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .welcome {
+    flex: 1;
+    min-height: 0;
+    justify-content: flex-end;
+    max-width: none;
+    margin: 0;
+    /* 底部固定预留一块空白（手势条区域）：保底 32px 不依赖系统安全区变量，
+       变量可用且更大时（如三键导航 48px）取更大值 */
+    padding: 0 16px max(32px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .greeting {
+    flex-shrink: 0;
+    margin: auto 0;
+  }
+
+}

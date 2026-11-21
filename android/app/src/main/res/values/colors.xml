@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与 Web 端主题底色一致：浅色 #FFFFFF，深色在 values-night 中为 #151517 -->
+    <color name="windowBackground">#FFFFFF</color>
+    <color name="splashBackground">#FFFFFF</color>
+</resources>

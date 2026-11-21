@@ -1,0 +1,9 @@
+# 复制本文件为 signing.properties 并填入实际值。
+# signing.properties 已加入 .gitignore，不会提交到仓库。
+# keystore 生成示例：
+#   keytool -genkeypair -v -keystore app/chatdemo-release.jks \
+#     -alias chatdemo -keyalg RSA -keysize 2048 -validity 10000
+chatdemo.storeFile=app/chatdemo-release.jks
+chatdemo.storePassword=CHANGE_ME
+chatdemo.keyAlias=chatdemo
+chatdemo.keyPassword=CHANGE_ME

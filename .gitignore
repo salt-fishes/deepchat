@@ -1,0 +1,27 @@
+node_modules/
+dist/
+build/
+.pnpm-store/
+.cache/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+tmp/
+
+# Android / Capacitor
+android/.gradle/
+android/build/
+android/app/build/
+android/app/debug
+android/app/release
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/
+android/signing.properties
+.idea/
+*.iml
+*.jks
+*.keystore
+*.apk

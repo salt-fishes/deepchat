@@ -1,0 +1,46 @@
+/* 深度思考药丸右侧的强度箭头：与药丸拼接成一体 */
+.trigger {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 100%;
+  margin-left: -6px;
+  padding: 0;
+  border: none;
+  border-radius: 0 18px 18px 0;
+  color: inherit;
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.trigger:hover {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+.open {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+.arrow {
+  display: flex;
+  transition: transform 0.2s var(--ds-ease-in-out);
+}
+
+.arrowUp {
+  transform: rotate(180deg);
+}
+
+/* 强度菜单：单行两段（标签+描述 | 勾），复用 Select 的菜单底样式 */
+.optionText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.optionDesc {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-secondary);
+}

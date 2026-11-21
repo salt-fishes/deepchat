@@ -1,0 +1,227 @@
+/* 全屏回览/剪裁浮层：上下工具条避让系统栏，裁剪框以 9999px 外阴影压暗四周（被容器裁剪） */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(0, 0, 0, 0.92);
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  /* 保底 16px：确认键即使安全区变量失效也不贴手势条 */
+  padding-bottom: max(16px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  animation: cropper-in 0.15s var(--ds-ease-in-out);
+}
+
+@keyframes cropper-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.top {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 10px;
+}
+
+.topButton {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  color: var(--dsw-static-neutral-bluish-00);
+  background: none;
+  cursor: pointer;
+  transition: background-color 0.15s var(--ds-ease-in-out);
+}
+
+/* 剪裁模式激活时给右上角图标一点底色提示 */
+.topButtonActive {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+.title {
+  flex: 1;
+  overflow: hidden;
+  color: var(--dsw-static-neutral-bluish-00);
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.frameArea {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+.img {
+  position: absolute;
+  /* left/top/width/height 由 applyLayout 按几何写入 */
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.frame {
+  position: absolute;
+  box-sizing: border-box;
+  cursor: move;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  /* 压暗裁剪框之外的一切（含超出容器的部分被 overflow hidden 裁掉） */
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+}
+
+.corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--dsw-static-neutral-bluish-00);
+}
+
+.cornerTL {
+  top: -2px;
+  left: -2px;
+  border-right: none;
+  border-bottom: none;
+  cursor: nwse-resize;
+}
+
+.cornerTR {
+  top: -2px;
+  right: -2px;
+  border-left: none;
+  border-bottom: none;
+  cursor: nesw-resize;
+}
+
+.cornerBL {
+  bottom: -2px;
+  left: -2px;
+  border-right: none;
+  border-top: none;
+  cursor: nesw-resize;
+}
+
+.cornerBR {
+  bottom: -2px;
+  right: -2px;
+  border-left: none;
+  border-top: none;
+  cursor: nwse-resize;
+}
+
+/* 分隔第三分线（横向/纵向各两条，弱化显示） */
+.frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, transparent 33.3%, rgba(255, 255, 255, 0.24) 33.3%, rgba(255, 255, 255, 0.24) 33.4%, transparent 33.4%, transparent 66.6%, rgba(255, 255, 255, 0.24) 66.6%, rgba(255, 255, 255, 0.24) 66.7%, transparent 66.7%),
+    linear-gradient(to bottom, transparent 33.3%, rgba(255, 255, 255, 0.24) 33.3%, rgba(255, 255, 255, 0.24) 33.4%, transparent 33.4%, transparent 66.6%, rgba(255, 255, 255, 0.24) 66.6%, rgba(255, 255, 255, 0.24) 66.7%, transparent 66.7%);
+}
+
+.loading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: var(--dsw-static-neutral-bluish-00);
+  animation: cropper-spin 0.8s linear infinite;
+}
+
+@keyframes cropper-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.bottom {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+}
+
+.chipsRow {
+  display: flex;
+  max-width: 100%;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chipsRow::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 100px;
+  background-color: rgba(255, 255, 255, 0.14);
+  color: var(--dsw-static-neutral-bluish-00);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s var(--ds-ease-in-out),
+    color 0.15s var(--ds-ease-in-out);
+}
+
+.chipActive {
+  background-color: var(--dsw-static-neutral-bluish-00);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 大号白色圆形确认键（官方拍照回览样式） */
+.confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--dsw-static-neutral-bluish-00);
+  color: var(--dsw-alias-brand-primary);
+  cursor: pointer;
+  transition: transform 0.15s var(--ds-ease-in-out);
+}
+
+.confirm:active {
+  transform: scale(0.94);
+}
+
+.confirm:disabled {
+  opacity: 0.5;
+}
+
+.confirm svg {
+  width: 28px;
+  height: 28px;
+}
