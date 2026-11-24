@@ -51,6 +51,10 @@
   cursor: default;
 }
 
+.attachmentSlot {
+  flex: 0 0 auto;
+}
+
 .attachment {
   animation: var(--motion-pop-enter) var(--motion-popup) var(--motion-ease-enter);
   position: relative;
@@ -62,6 +66,7 @@
   border: 1px solid var(--dsw-alias-border-l2);
   overflow: hidden;
   background-color: var(--dsw-alias-bg-skeleton);
+  transition: border-color var(--motion-popup) var(--motion-ease-enter);
 
   img {
     display: block;
@@ -79,6 +84,7 @@
   position: absolute;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.3);
+  animation: attachment-status-in var(--motion-popup) var(--motion-ease-enter);
 
   &::after {
     content: '';
@@ -118,11 +124,22 @@
   cursor: pointer;
   color: var(--dsw-static-neutral-bluish-00);
   background-color: rgba(0, 0, 0, 0.48);
+  animation: attachment-status-in var(--motion-popup) var(--motion-ease-enter);
 
   svg {
     width: 18px;
     height: 18px;
   }
+}
+
+@keyframes attachment-status-in {
+  from { opacity: 0; }
+}
+
+.attachmentReady { animation: attachment-ready var(--motion-popup) var(--motion-ease-enter); }
+
+@keyframes attachment-ready {
+  from { opacity: 0.65; }
 }
 
 /* 不可重试：蒙层更浅，原因贴底 */
@@ -213,6 +230,7 @@
   background-color: transparent;
   color: var(--dsw-alias-label-primary);
   caret-color: var(--dsw-alias-brand-text);
+  transition: opacity var(--motion-popup) var(--motion-ease-enter), visibility var(--motion-popup);
 
   &::placeholder {
     color: var(--dsw-alias-label-caption);
@@ -223,6 +241,8 @@
 /* 录音中由频谱接管第一行，隐藏正文但保留高度 */
 .textareaHidden {
   visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media not all and (min-width: 440px) {
@@ -401,6 +421,12 @@
     opacity: 0.4;
     cursor: not-allowed;
   }
+}
+
+.sendGlyph {
+  display: grid;
+  place-items: center;
+  animation: var(--motion-pop-enter) var(--motion-popup) var(--motion-ease-enter);
 }
 
 @media not all and (min-width: 768px) {

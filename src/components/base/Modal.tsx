@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useTranslate } from '../../i18n/index.js'
 import { IconCloseOutline16 } from './icons.js'
 import { IconButton } from './IconButton.js'
@@ -32,8 +33,19 @@ export const registerOverlayToken = (close: () => void): (() => void) => {
   }
 }
 
+type ModalProps = Parameters<typeof ModalSurface>[0]
+
 /** 遮罩 + 居中卡片，Esc / 点遮罩关闭 */
-export const Modal = ({
+export const Modal = (props: ModalProps & { open?: boolean }) => {
+  const ref = useRef<HTMLDivElement>(null)
+  const visible = useExitPresence(props.open === true ? true : null, ref)
+  if (props.open === undefined) {
+    return <ModalSurface {...props} />
+  }
+  return visible ? <ModalSurface {...props} overlayRef={ref} closing={!props.open} /> : null
+}
+
+const ModalSurface = ({
   title,
   children,
   footer,
@@ -61,6 +73,7 @@ export const Modal = ({
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   useEffect(() => {
+    if (closing) {return}
     const token: ModalToken = { close: () => onCloseRef.current() }
     openModals.push(token)
     const onKeyDown = (event: KeyboardEvent) => {
@@ -73,7 +86,7 @@ export const Modal = ({
       openModals.splice(openModals.indexOf(token), 1)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [])
+  }, [closing])
 
   return createPortal(
     <div

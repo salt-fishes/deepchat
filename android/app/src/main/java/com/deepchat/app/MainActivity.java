@@ -25,6 +25,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(WindowThemePlugin.class);
         registerPlugin(WcdbStoragePlugin.class);
         super.onCreate(savedInstanceState);
+        var webView = getBridge().getWebView();
+        webView.getSettings().setSupportZoom(false);
+        webView.getSettings().setBuiltInZoomControls(false);
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         EdgeToEdge.enable(this);
         fitWebViewInsideSystemInsets();
     }

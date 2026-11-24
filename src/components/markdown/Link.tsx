@@ -1,5 +1,6 @@
 import type { Image, Link as LinkNode } from 'mdast'
 import { memo, type ReactNode } from 'react'
+import { openImageViewer } from '../messages/imageViewerState.js'
 
 const sanitizeUrl = (url: string) => {
   // 如果URL没有协议，添加默认的https协议
@@ -45,12 +46,18 @@ export const Link = memo(function Link({
   )
 })
 
-/** Markdown 图片显示为指向图片地址的链接 */
-export function ImageAsLink({ node }: { node: Image }) {
+/** Remote images load only when explicitly opened, not on every message render. */
+export function MarkdownImage({ node }: { node: Image }) {
   const url = sanitizeUrl(node.url)
+  const name = node.alt || node.title || url || node.url
+  if (!url || !/^https?:\/\//.test(url)) {
+    return <span>{name}</span>
+  }
   return (
-    <a href={url} title={node.title ?? ''} target="_blank" rel="noreferrer">
-      {url}
-    </a>
+    <a href={url} title={node.title ?? ''} target="_blank" rel="noreferrer" onClick={(event) => {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {return}
+      event.preventDefault()
+      openImageViewer({ src: url, name })
+    }}>{name}</a>
   )
 }

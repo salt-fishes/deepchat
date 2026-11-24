@@ -19,6 +19,7 @@ type CropRequest = {
   mode: CropMode
   /** 原文件对象，未裁剪确认时原样交回 */
   file: File
+  purpose?: 'ask'
 }
 
 export const useImageCropper = create<{ request: CropRequest | null }>(() => ({
@@ -28,14 +29,14 @@ export const useImageCropper = create<{ request: CropRequest | null }>(() => ({
 let seq = 0
 let resolver: ((file: File | null) => void) | null = null
 
-export const openCropper = (file: File, mode: CropMode = 'preview'): Promise<File | null> => {
+export const openCropper = (file: File, mode: CropMode = 'preview', purpose?: 'ask'): Promise<File | null> => {
   // 上一次剪裁尚未结束时（理论上浮层会挡住入口）直接视为取消
   resolver?.(null)
   const promise = new Promise<File | null>((resolve) => {
     resolver = resolve
   })
   useImageCropper.setState({
-    request: { id: ++seq, src: URL.createObjectURL(file), name: file.name, mode, file },
+    request: { id: ++seq, src: URL.createObjectURL(file), name: file.name, mode, file, purpose },
   })
   return promise
 }

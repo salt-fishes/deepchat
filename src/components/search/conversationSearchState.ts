@@ -15,7 +15,7 @@ export const openConversationSearch = () =>
   useConversationSearch.setState({ open: true, query: '' })
 
 export const closeConversationSearch = () =>
-  useConversationSearch.setState({ open: false, query: '' })
+  useConversationSearch.setState({ open: false })
 
 export const setConversationSearchQuery = (query: string) =>
   useConversationSearch.setState({ query })

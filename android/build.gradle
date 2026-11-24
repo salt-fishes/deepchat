@@ -17,6 +17,17 @@ buildscript {
 
 apply from: "variables.gradle"
 
+// Use the installed SDK 37 tools for the app and all Capacitor Android modules.
+subprojects {
+    ['com.android.application', 'com.android.library'].each { pluginId ->
+        plugins.withId(pluginId) {
+            androidComponents.finalizeDsl { androidDsl ->
+                androidDsl.buildToolsVersion = '37.0.0'
+            }
+        }
+    }
+}
+
 allprojects {
     repositories {
         google()

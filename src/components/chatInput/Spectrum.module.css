@@ -15,6 +15,7 @@
   height: 36px;
   opacity: 0.7;
   pointer-events: none;
+  animation: var(--motion-pop-enter) var(--motion-popup) var(--motion-ease-enter);
 }
 
 .bar {

@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useTranslate } from '../../i18n/index.js'
 import { IconCloseOutline16 } from '../base/icons.js'
 import { IconButton } from '../base/IconButton.js'
@@ -10,11 +12,13 @@ export const SearchPanel = () => {
   const t = useTranslate()
   const entry = useSearchPanel((state) => state.entry)
   const sources = useSearchPanel((state) => state.sources)
-  if (!entry) {
+  const panelRef = useRef<HTMLElement>(null)
+  const visibleSources = useExitPresence(entry === null ? null : sources, panelRef)
+  if (!visibleSources) {
     return null
   }
   return (
-    <aside className={styles.panel}>
+    <aside ref={panelRef} className={styles.panel} data-app-exiting={entry === null || undefined}>
       <div className={styles.header}>
         <div role="heading" className={styles.title}>
           {t('searchResult')}
@@ -26,7 +30,7 @@ export const SearchPanel = () => {
         />
       </div>
       <div className={styles.content}>
-        {sources.map((source) => (
+        {visibleSources.map((source) => (
           <SourceCard key={source.url} source={source} className={styles.item} />
         ))}
       </div>

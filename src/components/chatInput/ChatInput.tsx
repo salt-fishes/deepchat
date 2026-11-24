@@ -307,7 +307,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             rows={2}
             // 移动端不自动聚焦，避免一打开就弹出键盘
             autoFocus={!isMobile}
-            disabled={importingHistory}
+            disabled={importingHistory || (recording && isMobile)}
             onFocus={isMobile ? closeSheet : undefined}
             value={text}
             onChange={(event) => setText(event.target.value)}
@@ -407,27 +407,24 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                 }}
               />
             ) : null}
-            {streaming && sessionId ? (
+            {(streaming && sessionId) || showSendButton ? (
               <button
                 type="button"
-                className={styles.sendButton}
-                aria-label={t('chatInputStopButtonTooltip')}
+                className={clsx(styles.sendButton, !streaming && !canSend && styles.disabled)}
+                aria-label={t(streaming ? 'chatInputStopButtonTooltip' : 'send')}
+                aria-disabled={!streaming && !canSend}
                 onClick={() => {
-                  stopReadAloud()
-                  stopReply(sessionId)
+                  if (streaming && sessionId) {
+                    stopReadAloud()
+                    stopReply(sessionId)
+                  } else {
+                    send()
+                  }
                 }}
               >
-                <IconStopFill16 />
-              </button>
-            ) : showSendButton ? (
-              <button
-                type="button"
-                className={clsx(styles.sendButton, !canSend && styles.disabled)}
-                aria-label={t('send')}
-                aria-disabled={!canSend}
-                onClick={send}
-              >
-                <IconSendOutline16 />
+                <span key={streaming ? 'stop' : 'send'} className={styles.sendGlyph}>
+                  {streaming ? <IconStopFill16 /> : <IconSendOutline16 />}
+                </span>
               </button>
             ) : null}
           </div>

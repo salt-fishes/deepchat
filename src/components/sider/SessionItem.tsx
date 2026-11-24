@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { memo, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useTranslate } from '../../i18n/index.js'
 import { IconCheckOutline16, IconEditOutline16, IconEllipsisOutline16, IconMultiSelect16, IconPinOutline16, IconTrashOutline16 } from '../base/icons.js'
 import { renameSession, selectSession } from '../../services/chat/store.js'
@@ -36,10 +37,13 @@ export const SessionItem = memo(function SessionItem({
   const t = useTranslate()
   const [editing, setEditing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  const expanded = menuOpen && selected === undefined
+  const menuVisible = useExitPresence(expanded ? true : null, menuRef)
   const press = useRef<{ id: number; x: number; y: number; timer: number }>()
   const suppressClick = useRef(false)
   const close = () => setMenuOpen(false)
-  const { anchorRef, floatingRef, position } = useAnchoredPosition<HTMLDivElement, HTMLDivElement>(menuOpen, { align: 'end', fitVisualViewport: true })
+  const { anchorRef, floatingRef, position } = useAnchoredPosition<HTMLDivElement, HTMLDivElement>(!!menuVisible, { align: 'end', fitVisualViewport: true })
   useDismiss(menuOpen, [anchorRef, floatingRef], close, { captureEscape: true })
   useEffect(() => menuOpen ? registerOverlayToken(() => setMenuOpen(false)) : undefined, [menuOpen])
   const cancelPress = () => {
@@ -152,8 +156,8 @@ export const SessionItem = memo(function SessionItem({
           </Menu>
         </div>
       ) : null}
-      {menuOpen && selected === undefined ? createPortal(
-        <div className={styles.contextMenu} role="menu" ref={floatingRef} style={position ?? { visibility: 'hidden' }}>
+      {menuVisible ? createPortal(
+        <div className={styles.contextMenu} role="menu" data-app-exiting={!expanded || undefined} ref={(node) => { menuRef.current = floatingRef.current = node }} style={position ?? { visibility: 'hidden' }}>
           {options.map((option) => <button type="button" role="menuitem" key={option.key} data-danger={option.danger || undefined} onClick={(event) => {
             event.stopPropagation()
             close()

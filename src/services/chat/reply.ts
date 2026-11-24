@@ -191,15 +191,16 @@ export const canContinueReply = (reply: AssistantMessage): boolean => {
 }
 
 /**
- * 已结束或停止且有回答文本的回复才放进上下文；被安全拒绝的轮次不回传。
+ * 已结束、停止或传输中断但已有正文的回复才放进上下文；被安全拒绝的轮次不回传。
  * 服务端模板提示不进入上下文。
  */
 const isUsableReply = (message: Message): message is AssistantMessage =>
   message.role === 'assistant' &&
-  (message.status === 'done' || message.status === 'stopped') &&
+  (message.status === 'done' || message.status === 'stopped' ||
+    (message.status === 'error' && message.error?.kind === 'interrupted')) &&
   message.stopReason !== 'refusal' &&
   !message.blocks.some((block) => block.type === 'text' && block.isTemplate) &&
-  getReplyText(message) !== ''
+  getReplyText(message).trim() !== ''
 
 /** 有文件时用内容块数组：先文件后文本，文件按 Files API 的 file_id 引用 */
 const toUserParam = ({ content, files }: UserMessage): MessageParam => {
@@ -298,7 +299,7 @@ export const getContextRounds = (history: Message[]): [UserMessage, AssistantMes
 
 /**
  * 把会话转成请求的 messages：只保留「提问 + 有回答的回复」成对的轮次，最后接上本轮提问。
- * 失败或没有回答的轮次不进上下文。续写时末尾再带上本轮 assistant。
+ * 没有有效回答的轮次不进上下文。续写时末尾再带上本轮 assistant。
  */
 export const toRequestMessages = (
   history: Message[],

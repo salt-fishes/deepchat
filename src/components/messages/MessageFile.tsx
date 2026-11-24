@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { useEffect, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { useUploads } from '../../services/attachments.js'
-import { loadFile } from '../../services/chat/db.js'
+import { loadFile, loadRecentImage } from '../../services/chat/db.js'
 import type { FileAttachment } from '../../services/chat/types.js'
 import { IconPhotoErrorFill20, IconRefreshOutline16 } from '../base/icons.js'
 import { Tooltip } from '../base/Tooltip.js'
@@ -11,24 +11,25 @@ import { openImageViewer } from './imageViewerState.js'
 import styles from './MessageFile.module.css'
 
 /** 原件从 IndexedDB 读出并生成本地地址；undefined 表示加载中，null 表示原件缺失。 */
-const useFileUrl = (id: string) => {
+const useFileUrl = (id: string, isImage: boolean) => {
   const [fileUrl, setFileUrl] = useState<{ id: string; url: string | null } | null>(null)
   useEffect(() => {
     let objectUrl: string | null = null
     let cancelled = false
-    loadFile(id).then((blob) => {
+    const load = isImage ? loadRecentImage : loadFile
+    load(id).then((blob) => {
       if (!cancelled) {
         objectUrl = blob ? URL.createObjectURL(blob) : null
         setFileUrl({ id, url: objectUrl })
       }
-    })
+    }).catch(() => { if (!cancelled) {setFileUrl({ id, url: null })} })
     return () => {
       cancelled = true
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl)
       }
     }
-  }, [id])
+  }, [id, isImage])
   return fileUrl?.id === id ? fileUrl.url : undefined
 }
 
@@ -57,7 +58,7 @@ export const MessageFile = ({
   onRetry: (() => void) | null
 }) => {
   const t = useTranslate()
-  const url = useFileUrl(file.id)
+  const url = useFileUrl(file.id, file.isImage)
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const upload = useUploadState(file)
   const uploading = upload?.status === 'uploading'

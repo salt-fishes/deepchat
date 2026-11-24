@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { memo } from 'react'
+import { memo, useEffect, useLayoutEffect, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { useUploads, type UploadTask } from '../../services/attachments.js'
 import type { DraftAttachment } from '../../services/chat/drafts.js'
@@ -22,19 +22,49 @@ export const DraftAttachments = memo(function DraftAttachments({
   onRemove: (id: string) => void
   onView: (id: string) => void
 }) {
-  if (items.length === 0) {
+  const [retained, setRetained] = useState<DraftAttachment[]>([])
+  useLayoutEffect(() => {
+    setRetained((previous) => [
+      ...previous.map((item) => items.find(({ id }) => id === item.id) ?? item),
+      ...items.filter(({ id }) => !previous.some((item) => item.id === id)),
+    ])
+  }, [items])
+  const byId = new Map(items.map((item) => [item.id, item]))
+  const exiting = retained.filter(({ id }) => !byId.has(id))
+  useEffect(() => {
+    if (!retained.some(({ id }) => !items.some((item) => item.id === id))) {return}
+    // Cleanup even if an exit is interrupted by layout changes or a hidden WebView.
+    const timeout = window.setTimeout(() => {
+      setRetained((previous) => previous.filter(({ id }) => items.some((item) => item.id === id)))
+    }, 240)
+    return () => window.clearTimeout(timeout)
+  }, [items, retained])
+  const visible = [...retained.map((item) => byId.get(item.id) ?? item), ...items.filter(({ id }) => !retained.some((item) => item.id === id))]
+  if (!visible.length) {
     return null
   }
   return (
     <div className={styles.attachments}>
-      {items.map((item) => (
-        <AttachmentItem
+      {visible.map((item) => (
+        <div
           key={item.id}
-          item={item}
-          onRetry={() => onRetry(item.id)}
-          onRemove={() => onRemove(item.id)}
-          onView={() => onView(item.id)}
-        />
+          className={styles.attachmentSlot}
+          data-app-exiting={!byId.has(item.id) || undefined}
+          aria-hidden={!byId.has(item.id) || undefined}
+          ref={(node) => { if (node) {node.inert = !byId.has(item.id)} }}
+          onAnimationEnd={(event) => {
+            if (event.target === event.currentTarget && exiting.includes(item)) {
+              setRetained((previous) => previous.filter(({ id }) => id !== item.id))
+            }
+          }}
+        >
+          <AttachmentItem
+            item={item}
+            onRetry={() => onRetry(item.id)}
+            onRemove={() => onRemove(item.id)}
+            onView={() => onView(item.id)}
+          />
+        </div>
       ))}
     </div>
   )
@@ -68,7 +98,7 @@ const AttachmentItem = ({
       title={error ?? item.file.name}
       onClick={item.isImage ? onView : undefined}
     >
-      <img src={item.previewUrl} alt={item.file.name} />
+      <img className={status === 'done' ? styles.attachmentReady : undefined} src={item.previewUrl} alt={item.file.name} />
       {status === 'uploading' ? <div className={styles.uploading} /> : null}
       {failed && retry ? (
         <Tooltip content={retryLabel}>

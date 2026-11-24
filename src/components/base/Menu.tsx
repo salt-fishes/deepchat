@@ -1,6 +1,7 @@
 import clsx from 'clsx'
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useAnchoredPosition, useDismiss } from './anchored.js'
 import styles from './Menu.module.css'
 
@@ -21,10 +22,12 @@ export const Menu = ({
   children: (props: { open: boolean; toggle: () => void }) => ReactNode
 }) => {
   const [open, setOpen] = useState(false)
+  const surfaceRef = useRef<HTMLDivElement | null>(null)
+  const visible = useExitPresence(open ? true : null, surfaceRef)
   const close = () => setOpen(false)
   // 左侧对齐并再左移 5px，让菜单文字与触发元素图标对齐
   const { anchorRef, floatingRef, position } = useAnchoredPosition<HTMLSpanElement, HTMLDivElement>(
-    open,
+    !!visible,
     { align: 'start', alignOffset: -5, offset: 4 }
   )
   useDismiss(open, [anchorRef, floatingRef], close)
@@ -34,10 +37,11 @@ export const Menu = ({
       <span ref={anchorRef} className={styles.anchor}>
         {children({ open, toggle: () => setOpen((value) => !value) })}
       </span>
-      {open
+      {visible
         ? createPortal(
             <div
-              ref={floatingRef}
+              ref={(node) => { surfaceRef.current = floatingRef.current = node }}
+              data-app-exiting={!open || undefined}
               className={styles.menu}
               style={position ?? undefined}
               role="menu"

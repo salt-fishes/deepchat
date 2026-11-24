@@ -17,6 +17,7 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   user-select: none;
+  animation: var(--motion-content-enter) var(--motion-popup) var(--motion-ease-enter);
 }
 
 .switcher:active .count {

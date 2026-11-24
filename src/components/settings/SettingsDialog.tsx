@@ -100,12 +100,16 @@ export const SettingsDialog = () => {
 /** 移动端独立二级页面：右侧滑入覆盖全屏，返回键关闭 */
 const SettingsPage = ({
   title,
+  section,
+  direction,
   closing,
   surfaceRef,
   onBack,
   children,
 }: {
   title: string
+  section: SettingsSection
+  direction: 'forward' | 'back' | null
   closing: boolean
   surfaceRef: RefObject<HTMLDivElement>
   onBack: () => void
@@ -128,7 +132,7 @@ const SettingsPage = ({
           aria-label={t('back')}
           onClick={onBack}
         />
-        <div className={styles.pageTitle}>{title}</div>
+        <div key={section} className={styles.pageTitle} data-direction={direction ?? undefined}>{title}</div>
       </div>
       <div className={clsx(styles.dialogMain, styles.pageMain)}>{children}</div>
     </div>,
@@ -203,7 +207,7 @@ const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, history
   return (
     <>
       {isMobile ? (
-        <SettingsPage title={title} closing={closing} surfaceRef={surfaceRef} onBack={back}>
+        <SettingsPage title={title} section={section} direction={direction} closing={closing} surfaceRef={surfaceRef} onBack={back}>
           {body}
         </SettingsPage>
       ) : (
@@ -222,8 +226,8 @@ const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, history
           {body}
         </Modal>
       )}
-      {historyImport.file ? <ImportConfirm historyImport={historyImport} /> : null}
-      {historyDelete.opened ? <DeleteAllConfirm historyDelete={historyDelete} /> : null}
+      <ImportConfirm historyImport={historyImport} />
+      <DeleteAllConfirm historyDelete={historyDelete} />
     </>
   )
 }
@@ -237,6 +241,7 @@ const DeleteAllConfirm = ({
   const t = useTranslate()
   return (
     <Modal
+      open={historyDelete.opened}
       title={t('deleteAllSessionsModalTitle')}
       className={styles.deleteConfirm}
       onClose={historyDelete.cancel}
@@ -460,8 +465,11 @@ const ImportConfirm = ({
   historyImport: ReturnType<typeof useHistoryImport>
 }) => {
   const t = useTranslate()
+  const fileName = useRef('')
+  if (historyImport.file) {fileName.current = historyImport.file.name}
   return (
     <Modal
+      open={!!historyImport.file}
       title={t('historyImportConfirmTitle')}
       className={styles.importConfirm}
       onClose={historyImport.cancel}
@@ -477,7 +485,7 @@ const ImportConfirm = ({
       }
     >
       <div className={styles.importConfirmText}>{t('historyImportConfirmDescription')}</div>
-      <div className={styles.importFileName}>{historyImport.file?.name}</div>
+      <div className={styles.importFileName}>{fileName.current}</div>
     </Modal>
   )
 }

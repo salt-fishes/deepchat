@@ -9,7 +9,20 @@
   border-left: 1px solid var(--dsw-alias-border-l2);
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-base);
-  animation: panel-in 0.18s var(--ds-ease-in-out);
+  animation: panel-in var(--motion-panel) var(--motion-ease-enter);
+}
+
+.panel[data-app-exiting] {
+  animation: panel-out var(--motion-popup) var(--motion-ease-exit) forwards;
+  overflow: hidden;
+}
+
+@keyframes panel-out {
+  to { opacity: 0; width: 0; }
+}
+
+@keyframes panel-out-mobile {
+  to { opacity: 0; transform: translateY(8px); }
 }
 
 @keyframes panel-in {
@@ -91,4 +104,6 @@
     border-left: none;
     animation-name: panel-in-mobile;
   }
+
+  .panel[data-app-exiting] { animation-name: panel-out-mobile; }
 }

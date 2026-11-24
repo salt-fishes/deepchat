@@ -26,8 +26,8 @@
     min-height: 0;
     overflow-y: auto;
     overflow-anchor: none;
-    overscroll-behavior-y: contain;
-    touch-action: pan-y pinch-zoom;
+    overscroll-behavior-y: none;
+    touch-action: pan-y;
     scrollbar-color: var(--scroll-color) transparent;
   }
 }
@@ -46,4 +46,7 @@
   border: 1px solid var(--dsw-alias-border-l2-darkmode-thin); border-radius: 50%;
   color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); cursor: pointer;
   box-shadow: 0 2px 8px #0002;
+  animation: var(--motion-pop-enter) var(--motion-popup) var(--motion-ease-enter);
+  transition: scale var(--motion-feedback) var(--motion-ease-enter);
+  &:active { scale: 0.92; }
 }

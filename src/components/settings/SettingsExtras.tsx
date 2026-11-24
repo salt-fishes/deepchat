@@ -71,10 +71,10 @@ export const ApiActions = ({ editing }: { editing: boolean }) => {
     {apiKey ? <Row label={t('settingsClearKey')}>
       <Button variant="dangerOutlined" disabled={editing} onClick={() => setConfirm(true)}>{t('delete')}</Button>
     </Row> : null}
-    {confirm ? <Modal title={t('settingsClearKey')} onClose={() => setConfirm(false)} footer={<>
+    <Modal open={confirm} title={t('settingsClearKey')} onClose={() => setConfirm(false)} footer={<>
       <Button variant="outlined" onClick={() => setConfirm(false)}>{t('cancel')}</Button>
       <Button variant="danger" onClick={() => { setConfirm(false); setApiKey(null) }}>{t('delete')}</Button>
-    </>}>{t('settingsClearKeyHint')}</Modal> : null}
+    </>}>{t('settingsClearKeyHint')}</Modal>
   </>
 }
 

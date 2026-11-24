@@ -1,6 +1,7 @@
 import clsx from 'clsx'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useAnchoredPosition, useDismiss } from './anchored.js'
 import { IconCheckOutline16, IconChevronDownOutline14 } from './icons.js'
 import styles from './Select.module.css'
@@ -29,14 +30,17 @@ export const Select = <T extends string>({
   disabled?: boolean
 }) => {
   const [open, setOpen] = useState(false)
+  const surfaceRef = useRef<HTMLDivElement | null>(null)
+  const expanded = open && !disabled
+  const visible = useExitPresence(expanded ? true : null, surfaceRef)
   const current = options.find((option) => option.value === value)
   // 菜单贴右侧展开，最多 320px 高，超出在菜单内滚动
   const { anchorRef, floatingRef, position } = useAnchoredPosition<
     HTMLButtonElement,
     HTMLDivElement
-  >(open, { align: 'end', maxHeight: 320, minSpace: 160 })
+  >(!!visible, { align: 'end', maxHeight: 320, minSpace: 160 })
   // Esc 只关菜单，不让外层弹窗一起关闭
-  useDismiss(open, [anchorRef, floatingRef], () => setOpen(false), { captureEscape: true })
+  useDismiss(expanded, [anchorRef, floatingRef], () => setOpen(false), { captureEscape: true })
 
   return (
     <>
@@ -46,7 +50,7 @@ export const Select = <T extends string>({
         className={clsx(styles.trigger, open && styles.open, className)}
         aria-label={ariaLabel}
         aria-haspopup="listbox"
-        aria-expanded={open}
+        aria-expanded={expanded}
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
       >
@@ -59,10 +63,11 @@ export const Select = <T extends string>({
           <IconChevronDownOutline14 />
         </span>
       </button>
-      {open && !disabled
+      {visible
         ? createPortal(
             <div
-              ref={floatingRef}
+              ref={(node) => { surfaceRef.current = floatingRef.current = node }}
+              data-app-exiting={!expanded || undefined}
               className={styles.menu}
               style={position ?? undefined}
               role="listbox"

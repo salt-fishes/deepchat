@@ -55,9 +55,11 @@ export const Spectrum = ({ getAnalyser }: { getAnalyser: () => AnalyserNode | nu
     let ranges: Range[] = []
     let rangeKey = ''
     let frame = 0
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)')
 
     const draw = () => {
       frame = requestAnimationFrame(draw)
+      if (reduced.matches) {return}
       const analyser = getAnalyser()
       if (analyser) {
         if (data.length !== analyser.frequencyBinCount) {
@@ -102,8 +104,20 @@ export const Spectrum = ({ getAnalyser }: { getAnalyser: () => AnalyserNode | nu
       }
     }
 
-    frame = requestAnimationFrame(draw)
-    return () => cancelAnimationFrame(frame)
+    const syncMotion = () => {
+      cancelAnimationFrame(frame)
+      if (reduced.matches) {
+        for (const bar of bars) {bar.style.removeProperty('transform')}
+      } else {
+        frame = requestAnimationFrame(draw)
+      }
+    }
+    syncMotion()
+    reduced.addEventListener('change', syncMotion)
+    return () => {
+      cancelAnimationFrame(frame)
+      reduced.removeEventListener('change', syncMotion)
+    }
   }, [count, getAnalyser])
 
   return (

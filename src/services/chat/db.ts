@@ -424,14 +424,63 @@ export const loadSessionSummaries = native ? wcdbLoadSessionSummaries : idbLoadS
 export const loadSession = native ? wcdbLoadSession : idbLoadSession
 export const saveSession = native ? wcdbSaveSession : idbSaveSession
 export const renameSession = native ? wcdbRenameSession : idbRenameSession
-export const deleteSession = native ? wcdbDeleteSession : idbDeleteSession
+const deleteStoredSession = native ? wcdbDeleteSession : idbDeleteSession
+export const deleteSession = async (sessionId: string) => {
+  await deleteStoredSession(sessionId)
+  clearImageCache()
+}
 export const saveFiles = native ? wcdbSaveFiles : idbSaveFiles
 export const loadFile = native ? wcdbLoadFile : idbLoadFile
 export const clearStaging = native ? wcdbClearStaging : idbClearStaging
 export const addStagingSessions = native ? wcdbAddStagingSessions : idbAddStagingSessions
 export const saveStagingFiles = native ? wcdbSaveStagingFiles : idbSaveStagingFiles
 export const updateStagingFileTypes = native ? wcdbUpdateStagingFileTypes : idbUpdateStagingFileTypes
-export const commitStaging = native ? wcdbCommitStaging : idbCommitStaging
+const commitStoredStaging = native ? wcdbCommitStaging : idbCommitStaging
+export const commitStaging = async () => {
+  const summaries = await commitStoredStaging()
+  clearImageCache()
+  return summaries
+}
+
+// Share recent attachment reads between thumbnails and the viewer. Only keep
+// blobs; each consumer owns the lifetime of its object URL.
+const imageCache = new Map<string, Blob>()
+const imageReads = new Map<string, Promise<Blob | undefined>>()
+const IMAGE_CACHE_BYTES = 24 * 1024 * 1024
+let imageCacheBytes = 0
+const clearImageCache = () => {
+  imageCache.clear()
+  imageReads.clear()
+  imageCacheBytes = 0
+}
+
+export const loadRecentImage = (id: string): Promise<Blob | undefined> => {
+  const cached = imageCache.get(id)
+  if (cached) {
+    imageCache.delete(id)
+    imageCache.set(id, cached)
+    return Promise.resolve(cached)
+  }
+  const pending = imageReads.get(id)
+  if (pending) {return pending}
+
+  const read = loadFile(id).then((blob) => {
+    if (imageReads.get(id) !== read) {return blob}
+    if (blob && blob.size <= IMAGE_CACHE_BYTES) {
+      while (imageCache.size >= 16 || imageCacheBytes + blob.size > IMAGE_CACHE_BYTES) {
+        const oldest = imageCache.entries().next().value
+        if (!oldest) {break}
+        imageCache.delete(oldest[0])
+        imageCacheBytes -= oldest[1].size
+      }
+      imageCache.set(id, blob)
+      imageCacheBytes += blob.size
+    }
+    return blob
+  }).finally(() => { if (imageReads.get(id) === read) {imageReads.delete(id)} })
+  imageReads.set(id, read)
+  return read
+}
 
 /** 本地存储失败不打断对话，只在控制台留痕 */
 export const reportStorageError = (action: string) => (error: unknown) => {

@@ -11,6 +11,14 @@
   animation: search-page-in var(--motion-page) var(--motion-ease-enter);
 }
 
+.page[data-app-exiting] {
+  animation: search-page-out var(--motion-popup) var(--motion-ease-exit) forwards;
+}
+
+@keyframes search-page-out {
+  to { opacity: 0; transform: translateY(8px); }
+}
+
 @keyframes search-page-in {
   from {
     opacity: 0;

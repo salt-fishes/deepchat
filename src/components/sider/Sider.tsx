@@ -40,6 +40,8 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const [managing, setManaging] = useState(false)
   const [selection, setSelection] = useState<string[]>([])
   const [deleting, setDeleting] = useState<SessionSummary[] | null>(null)
+  const deleteCount = useRef(0)
+  if (deleting) {deleteCount.current = deleting.length}
   const [deletePending, setDeletePending] = useState(false)
   const drawerOpen = useMobileSider((state) => state.open)
   const pinIds = useSessionPins((state) => state.ids)
@@ -267,9 +269,9 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           {!mobile ? <span className={styles.settingsLabel}>{t('settings')}</span> : null}
         </button>
        </div>}
-      {deleting ? (
         <Modal
-           title={t(deleting.length > 1 ? 'deleteSelectedChats' : 'deleteSessionModalContentTitle')}
+           open={deleting !== null}
+           title={t(deleteCount.current > 1 ? 'deleteSelectedChats' : 'deleteSessionModalContentTitle')}
           onClose={() => {
             if (!deletePending) {
               setDeleting(null)
@@ -282,8 +284,9 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
               </Button>
               <Button
                 variant="danger"
-                disabled={deletePending}
-                onClick={async () => {
+                 disabled={deletePending}
+                 onClick={async () => {
+                   if (!deleting) {return}
                   setDeletePending(true)
                   try {
                      const failed = []
@@ -313,7 +316,6 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
         >
           {t('deleteSessionWithFilesDescription')}
         </Modal>
-      ) : null}
     </div>
   )
 }

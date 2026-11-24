@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useTranslate } from '../../i18n/index.js'
 import { loadSession } from '../../services/chat/db.js'
 import { selectSession, useChatStore } from '../../services/chat/store.js'
@@ -68,6 +69,8 @@ const RESULT_LIMIT_INCREMENT = 60
 export const ConversationSearch = () => {
   const t = useTranslate()
   const { open, query } = useConversationSearch()
+  const pageRef = useRef<HTMLDivElement>(null)
+  const visible = useExitPresence(open ? true : null, pageRef)
   const sessions = useChatStore((state) => state.sessions)
   const locale = useSettings((state) => state.locale)
   const keyword = query.trim().toLowerCase()
@@ -81,7 +84,8 @@ export const ConversationSearch = () => {
   })), [sessions])
 
   useEffect(() => {
-    if (!open || !keyword) {
+    if (!open) {return}
+    if (!keyword) {
       setScan(undefined)
       return
     }
@@ -134,6 +138,7 @@ export const ConversationSearch = () => {
   }, [open, sessions, keyword])
 
   useEffect(() => {
+    if (!open) {return}
     setVisibleLimit(RESULT_LIMIT_INCREMENT)
     if (resultsRef.current) {
       resultsRef.current.scrollTop = 0
@@ -141,8 +146,11 @@ export const ConversationSearch = () => {
   }, [open, keyword])
 
   useEffect(() => {
-    if (open) {
-      inputRef.current?.focus({ preventScroll: true })
+    if (!open) {return}
+    const trigger = document.activeElement
+    inputRef.current?.focus({ preventScroll: true })
+    return () => {
+      if (trigger instanceof HTMLElement && trigger.isConnected) {trigger.focus({ preventScroll: true })}
     }
   }, [open])
 
@@ -150,12 +158,12 @@ export const ConversationSearch = () => {
   const searching = Boolean(keyword) && !current?.done
   const hits = keyword ? current?.hits ?? [] : recent
 
-  if (!open) {
+  if (!visible) {
     return null
   }
 
   return (
-    <div className={styles.page}>
+    <div ref={pageRef} className={styles.page} data-app-exiting={!open || undefined}>
       <div className={styles.header}>
         <button
           type="button"

@@ -70,6 +70,15 @@ body.change-theme *::after {
   }
 }
 
+@keyframes app-pop-exit {
+  to { opacity: 0; scale: 0.96; }
+}
+
+:root [data-app-exiting] {
+  pointer-events: none;
+  animation: app-pop-exit var(--motion-feedback) var(--motion-ease-exit) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

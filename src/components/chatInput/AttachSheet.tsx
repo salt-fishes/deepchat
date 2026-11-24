@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useAnchoredPosition } from '../base/anchored.js'
 import { registerOverlayToken } from '../base/Modal.js'
 import {
@@ -12,8 +13,9 @@ import {
 import { ACCEPT } from '../../services/attachments.js'
 import {
   getPhotoDataUrl,
-  getRecentPhotos,
+  getCachedRecentPhotos,
   isMediaGalleryAvailable,
+  refreshRecentPhotos,
   takePhotoDataUrl,
   type RecentPhoto,
 } from '../../services/mediaGallery.js'
@@ -51,12 +53,14 @@ export const AttachSheet = ({
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mobileSheetRef = useRef<HTMLDivElement>(null)
+  const popoverRef = useRef<HTMLDivElement | null>(null)
+  const popoverVisible = useExitPresence(open && !isMobile ? true : null, popoverRef)
   const [photos, setPhotos] = useState<RecentPhoto[]>([])
   const [photosState, setPhotosState] = useState<'loading' | 'ready' | 'unavailable'>('loading')
   const pendingPhoto = useRef<AbortController | null>(null)
   const [adding, setAdding] = useState(false)
   const { floatingRef, position } = useAnchoredPosition<HTMLButtonElement, HTMLDivElement>(
-    open && !isMobile,
+    !!popoverVisible && !isMobile,
     // 桌面端贴加号上方展开；锚点为外部传入的加号按钮
     {
       side: 'top',
@@ -85,8 +89,8 @@ export const AttachSheet = ({
     }
   }, [open])
 
-  // 打开时拉取最近图片；权限被拒或无照片则整行隐藏
-  useEffect(() => {
+  // 首帧使用有效缓存，后台刷新；权限被拒或无照片则整行隐藏。
+  useLayoutEffect(() => {
     if (!open) {
       return
     }
@@ -95,8 +99,10 @@ export const AttachSheet = ({
       return
     }
     let cancelled = false
-    setPhotosState('loading')
-    getRecentPhotos(24).then((list) => {
+    const cached = getCachedRecentPhotos()
+    setPhotos(cached)
+    setPhotosState(cached.length ? 'ready' : 'loading')
+    refreshRecentPhotos().then((list) => {
       if (cancelled) {
         return
       }
@@ -289,15 +295,16 @@ export const AttachSheet = ({
     )
   }
 
-  if (!open) {
+  if (!popoverVisible) {
     return null
   }
 
   // 桌面端：加号上方的锚定浮层
   return createPortal(
     <div
-      ref={floatingRef}
+      ref={(node) => { popoverRef.current = floatingRef.current = node }}
       className={styles.popover}
+      data-app-exiting={!open || undefined}
       style={position ?? undefined}
       onClick={(event) => event.stopPropagation()}
     >

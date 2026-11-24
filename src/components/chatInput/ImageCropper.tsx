@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslate } from '../../i18n/index.js'
-import { IconCheckOutline16, IconCloseOutline16, IconCropOutline16 } from '../base/icons.js'
+import { IconCheckOutline16, IconCloseOutline16, IconCropOutline16, IconRefreshOutline16 } from '../base/icons.js'
 import { registerOverlayToken } from '../base/Modal.js'
 import { resolveCropper, useImageCropper } from './imageCropperState.js'
 import styles from './ImageCropper.module.css'
@@ -48,6 +48,10 @@ export const ImageCropper = () => {
   const [mode, setMode] = useState<Mode>('preview')
   const [aspect, setAspect] = useState<string>('free')
   const [busy, setBusy] = useState(false)
+  const [rotation, setRotation] = useState(0)
+  const sideways = rotation % 180 !== 0
+  const orientedWidth = image ? (sideways ? image.height : image.width) : 0
+  const orientedHeight = image ? (sideways ? image.width : image.height) : 0
   const areaRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
   const rectRef = useRef<HTMLDivElement>(null)
@@ -65,6 +69,8 @@ export const ImageCropper = () => {
 
   // 打开时解码图片；失败按取消关闭
   useEffect(() => {
+    geometry.current.rect = { x: 0, y: 0, w: 0, h: 0 }
+    setRotation(0)
     if (!request) {
       setImage(null)
       return
@@ -105,10 +111,12 @@ export const ImageCropper = () => {
     const rect = rectRef.current
     const { imageRect } = geometry.current
     if (img) {
-      img.style.left = `${imageRect.x}px`
-      img.style.top = `${imageRect.y}px`
-      img.style.width = `${imageRect.w}px`
-      img.style.height = `${imageRect.h}px`
+      const w = sideways ? imageRect.h : imageRect.w
+      const h = sideways ? imageRect.w : imageRect.h
+      img.style.left = `${imageRect.x + (imageRect.w - w) / 2}px`
+      img.style.top = `${imageRect.y + (imageRect.h - h) / 2}px`
+      img.style.width = `${w}px`
+      img.style.height = `${h}px`
       img.style.opacity = '1'
     }
     if (rect) {
@@ -136,9 +144,9 @@ export const ImageCropper = () => {
         return
       }
       const pad = 12
-      const scale = Math.min((width - pad * 2) / image.width, (height - pad * 2) / image.height)
-      const w = image.width * scale
-      const h = image.height * scale
+      const scale = Math.min((width - pad * 2) / orientedWidth, (height - pad * 2) / orientedHeight)
+      const w = orientedWidth * scale
+      const h = orientedHeight * scale
       const imageRect = { x: (width - w) / 2, y: (height - h) / 2, w, h }
       geometry.current.imageRect = imageRect
       const current = geometry.current.rect
@@ -162,7 +170,7 @@ export const ImageCropper = () => {
     window.addEventListener('resize', layout)
     return () => window.removeEventListener('resize', layout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [image])
+  }, [image, rotation, orientedWidth, orientedHeight])
 
   // 进入剪裁模式时把裁剪框几何同步到 DOM（布局效果只在图片加载/转屏时跑）
   useEffect(() => {
@@ -306,18 +314,19 @@ export const ImageCropper = () => {
       return
     }
     // 预览模式或未做任何操作：原样交回原文件
-    if (mode === 'preview' || !dirty.current) {
+    if ((mode === 'preview' || !dirty.current) && !rotation) {
       resolveCropper(request.file)
       return
     }
     setBusy(true)
     try {
       const { imageRect, rect } = geometry.current
-      const scale = imageRect.w / image.width
-      const sx = (rect.x - imageRect.x) / scale
-      const sy = (rect.y - imageRect.y) / scale
-      const sw = rect.w / scale
-      const sh = rect.h / scale
+      const selected = mode === 'crop' ? rect : imageRect
+      const scale = imageRect.w / orientedWidth
+      const sx = (selected.x - imageRect.x) / scale
+      const sy = (selected.y - imageRect.y) / scale
+      const sw = selected.w / scale
+      const sh = selected.h / scale
       const outputScale = Math.min(1, MAX_OUTPUT_DIM / Math.max(sw, sh))
       const canvas = document.createElement('canvas')
       canvas.width = Math.max(1, Math.round(sw * outputScale))
@@ -330,7 +339,10 @@ export const ImageCropper = () => {
       ctx.fillStyle = '#fff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(image.el, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+      ctx.scale(canvas.width / sw, canvas.height / sh)
+      ctx.translate(orientedWidth / 2 - sx, orientedHeight / 2 - sy)
+      ctx.rotate(rotation * Math.PI / 180)
+      ctx.drawImage(image.el, -image.width / 2, -image.height / 2)
       const blob = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY)
       )
@@ -338,7 +350,9 @@ export const ImageCropper = () => {
         return
       }
       const base = request.name.replace(/\.[^.]+$/, '')
-      resolveCropper(new File([blob], `${base}.jpg`, { type: 'image/jpeg' }))
+      if (useImageCropper.getState().request?.id === request.id) {
+        resolveCropper(new File([blob], `${base}.jpg`, { type: 'image/jpeg' }))
+      }
     } finally {
       setBusy(false)
     }
@@ -349,8 +363,16 @@ export const ImageCropper = () => {
   }
 
   return createPortal(
-    <div className={styles.overlay}>
-      <div className={styles.top}>
+    <div className={clsx(styles.overlay, request.purpose === 'ask' && styles.askOverlay)} role="dialog" aria-modal="true" aria-label={t('cropTitle')}>
+      {request.purpose === 'ask' ? (
+        <div className={styles.askTop}>
+          <button type="button" className={styles.rotate} disabled={busy || !image} onClick={() => {
+            drag.current = null
+            geometry.current.rect = { x: 0, y: 0, w: 0, h: 0 }
+            setRotation((value) => (value + 90) % 360)
+          }}><IconRefreshOutline16 />{t('imageViewerRotate')}</button>
+        </div>
+      ) : <div className={styles.top}>
         <button
           type="button"
           className={styles.topButton}
@@ -368,7 +390,7 @@ export const ImageCropper = () => {
         >
           <IconCropOutline16 />
         </button>
-      </div>
+      </div>}
       <div
         ref={areaRef}
         className={styles.frameArea}
@@ -377,7 +399,7 @@ export const ImageCropper = () => {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <img ref={imgRef} className={styles.img} src={request.src} alt="" draggable={false} />
+        <img ref={imgRef} className={styles.img} style={{ rotate: `${rotation}deg` }} src={request.src} alt="" draggable={false} />
         {image && mode === 'crop' ? (
           <div ref={rectRef} className={styles.frame}>
             <span className={clsx(styles.corner, styles.cornerTL)} />
@@ -388,7 +410,12 @@ export const ImageCropper = () => {
         ) : null}
         {!image ? <div className={styles.loading} aria-hidden /> : null}
       </div>
-      <div className={styles.bottom}>
+      {request.purpose === 'ask' ? (
+        <div className={styles.askBottom}>
+          <button type="button" className={styles.askClose} aria-label={t('cancel')} onClick={() => resolveCropper(null)}><IconCloseOutline16 /></button>
+          <button type="button" className={styles.askConfirm} disabled={busy || !image} onClick={() => void confirm()}>{t('imageViewerAsk')}</button>
+        </div>
+      ) : <div className={styles.bottom}>
         {mode === 'crop' ? (
           <div className={styles.chipsRow}>
             {ASPECTS.map((item) => (
@@ -412,7 +439,7 @@ export const ImageCropper = () => {
         >
           <IconCheckOutline16 />
         </button>
-      </div>
+      </div>}
     </div>,
     document.body
   )

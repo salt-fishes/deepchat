@@ -14,6 +14,42 @@
   animation: cropper-in 0.15s var(--ds-ease-in-out);
 }
 
+.askOverlay { background: #000; }
+
+.askTop, .askBottom {
+  flex: 0 0 64px;
+  display: flex;
+  align-items: center;
+  padding-inline: 18px;
+  gap: 14px;
+}
+
+.askTop { justify-content: flex-end; }
+
+.rotate, .askClose, .askConfirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: scale var(--motion-feedback) var(--motion-ease-enter);
+
+  svg { width: 22px; height: 22px; }
+  &:active:not(:disabled) { scale: 0.96; }
+  &:disabled { opacity: 0.4; cursor: default; }
+}
+
+.askClose { flex: 0 0 48px; background: #2b2b2b; }
+.askConfirm { flex: 1; min-width: 0; background: #5875dc; }
+
 @keyframes cropper-in {
   from {
     opacity: 0;

@@ -156,12 +156,17 @@ export const prepareDraftMessage = (draft: Draft, tasks: Record<string, UploadTa
   return { text, files }
 }
 
-const releaseAttachment = (attachment: DraftAttachment, cancel: boolean) => {
+const releaseAttachment = (attachment: DraftAttachment, cancel: boolean, exiting = false) => {
   if (cancel) {
     cancelUpload(attachment.id)
   }
   if (attachment.previewUrl) {
-    URL.revokeObjectURL(attachment.previewUrl)
+    const url = attachment.previewUrl
+    if (exiting) {
+      window.setTimeout(() => URL.revokeObjectURL(url), 260)
+    } else {
+      URL.revokeObjectURL(url)
+    }
   }
 }
 
@@ -170,7 +175,7 @@ export const removeDraftAttachment = (sessionId: string | null, attachmentId: st
   if (!attachment) {
     return
   }
-  releaseAttachment(attachment, true)
+  releaseAttachment(attachment, true, true)
   updateDraft(sessionId, (draft) => ({
     ...draft,
     attachments: draft.attachments.filter((item) => item.id !== attachmentId),
@@ -179,7 +184,7 @@ export const removeDraftAttachment = (sessionId: string | null, attachmentId: st
 
 /** 发送成功后原件与 serverId 已交给会话，释放预览但保留上传完成态。 */
 export const clearSentDraft = (sessionId: string | null) => {
-  getDraft(sessionId).attachments.forEach((attachment) => releaseAttachment(attachment, false))
+  getDraft(sessionId).attachments.forEach((attachment) => releaseAttachment(attachment, false, true))
   updateDraft(sessionId, () => EMPTY_DRAFT)
 }
 

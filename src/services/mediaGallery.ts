@@ -14,6 +14,23 @@ const MediaGallery = registerPlugin<MediaGalleryPlugin>('MediaGallery')
 /** 仅 Android APK 内可用（依赖原生 MediaGalleryPlugin）；Web 端隐藏最近图片行 */
 export const isMediaGalleryAvailable = (): boolean => Capacitor.isNativePlatform()
 
+export const RECENT_PHOTO_LIMIT = 24
+const RECENT_PHOTO_TTL = 60_000
+let recent: { photos: RecentPhoto[]; expires: number } | undefined
+let pending: Promise<RecentPhoto[]> | undefined
+
+/** In-memory only: show the last thumbnails while refreshing the native album. */
+export const getCachedRecentPhotos = (): RecentPhoto[] =>
+  recent && recent.expires > Date.now() ? recent.photos : []
+
+export const refreshRecentPhotos = (): Promise<RecentPhoto[]> => {
+  pending ??= getRecentPhotos(RECENT_PHOTO_LIMIT).then((photos) => {
+    recent = photos.length ? { photos, expires: Date.now() + RECENT_PHOTO_TTL } : undefined
+    return photos
+  }).finally(() => { pending = undefined })
+  return pending
+}
+
 /** 最近图片列表；权限被拒或查询失败时返回空数组 */
 export const getRecentPhotos = async (limit = 24): Promise<RecentPhoto[]> => {
   if (!isMediaGalleryAvailable()) {

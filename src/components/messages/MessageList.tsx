@@ -15,6 +15,9 @@ import { AssistantMessage } from './AssistantMessage.js'
 import { ScrollToBottomContext } from './scrollContext.js'
 import { UserMessage } from './UserMessage.js'
 import type { Message } from '../../services/chat/types.js'
+import { useExitPresence } from '../../app/useExitPresence.js'
+import { useEdgeBounce } from './useEdgeBounce.js'
+import { VisibleMessage } from './VisibleMessage.js'
 
 /**
  * 会话共用可重试的附件上传失败入口，覆盖当前提问与历史消息中的附件。
@@ -48,9 +51,17 @@ export const MessageList = ({
   const isMobile = useIsMobile()
   const t = useTranslate()
   const [showLatest, setShowLatest] = useState(false)
+  const latestRef = useRef<HTMLButtonElement>(null)
+  const latestVisible = useExitPresence(showLatest ? true : null, latestRef)
   const fontOffset = useSettings((s) => chatFontOffset[s.chatFontSize])
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  useEdgeBounce(scrollRef, isMobile, session.id)
+  useLayoutEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {return}
+    const animation = contentRef.current?.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' })
+    return () => animation?.cancel()
+  }, [session.id])
   const stickyRef = useRef(true)
   const scrollTopRef = useRef(0)
   const turnAnchor = useRef<string>()
@@ -113,10 +124,10 @@ export const MessageList = ({
     const lastId = lastMessageId ?? null
     const rendered = renderedLastRef.current
     renderedLastRef.current = { sessionId: session.id, lastId }
-    if (rendered?.sessionId === session.id && rendered.lastId !== lastId && lastId) {
+    if (lastId && ((rendered?.sessionId === session.id && rendered.lastId !== lastId) || (!rendered && streaming && messages.length === 2))) {
       flashEntering(lastId)
     }
-  }, [session.id, lastMessageId, flashEntering])
+  }, [session.id, lastMessageId, flashEntering, messages.length, streaming])
   useEffect(() => () => window.clearTimeout(enteringTimerRef.current), [])
 
   // 内容、键盘和输入框高度变化时，继续遵循当前跟随状态。
@@ -222,10 +233,15 @@ export const MessageList = ({
   const uploadRetryId = getUploadRetryId(messages, streaming)
   return (
     <ScrollToBottomContext.Provider value={scrollToBottom}>
-      <div ref={isMobile ? undefined : scrollRef} className={styles.container}>
-        <div ref={isMobile ? scrollRef : undefined} className={styles.scroll}>
+      <div ref={isMobile ? undefined : scrollRef} data-chat-scroll={!isMobile || undefined} className={styles.container}>
+        <div ref={isMobile ? scrollRef : undefined} data-chat-scroll={isMobile || undefined} className={styles.scroll}>
           <div ref={contentRef} className={styles.column} style={{ '--chat-font-offset': `${fontOffset}px` } as CSSProperties}>
-            {messages.map((message, index) =>
+            {messages.map((message, index) => (
+              <VisibleMessage key={message.id} eager={index >= lastIndex - 1 || message.id === enteringId}
+                height={message.role === 'user'
+                  ? 65 + Math.ceil(message.content.length / 45) * 23 + (message.files.length ? 100 : 0)
+                  : 90 + Math.min(1600, Math.ceil(message.blocks.reduce((size, block) => size + (block.type === 'text' ? block.text.length : 0), 0) / 55) * 25)}>
+              {
               message.role === 'user' ? (
                 <UserMessage
                   key={message.id}
@@ -252,12 +268,14 @@ export const MessageList = ({
                   onSelectVersion={selectVersion}
                 />
               )
-            )}
+              }
+              </VisibleMessage>
+            ))}
             <div ref={spacerRef} aria-hidden="true" />
           </div>
         </div>
         <div className={styles.footerAnchor}>
-          {showLatest ? <button type="button" className={styles.jumpLatest} aria-label={t('jumpToLatest')} onClick={() => {
+          {latestVisible ? <button ref={latestRef} data-app-exiting={!showLatest || undefined} type="button" className={styles.jumpLatest} aria-label={t('jumpToLatest')} onClick={() => {
             turnAnchor.current = undefined
             if (spacerRef.current) {
               spacerRef.current.style.height = '0px'

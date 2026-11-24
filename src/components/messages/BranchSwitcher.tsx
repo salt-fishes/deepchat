@@ -42,7 +42,7 @@ export const BranchSwitcher = ({
         disabled={disabled || index <= 0}
         onClick={() => select(ids[index - 1])}
       />
-      <span className={styles.count}>
+      <span key={index} className={styles.count}>
         {index + 1} / {ids.length}
       </span>
       <IconButton
