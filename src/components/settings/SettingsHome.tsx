@@ -13,6 +13,7 @@ import {
   IconDarkOutline16,
   IconDataOutline16,
   IconFollowsystemOutline16,
+  IconGlobeLanguageOutline14,
   IconLightOutline16,
 } from '../base/icons.js'
 import { SettingsChoiceRow, type SettingsChoiceOption } from './SettingsChoice.js'
@@ -36,7 +37,6 @@ export const settingsTitles: Record<SettingsSection, TranslationKey> = {
 
 const glyphs = {
   api: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM3 22a9 9 0 0 1 18 0',
-  language: 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM2 12h20M12 2c5 5 5 15 0 20-5-5-5-15 0-20Z',
   font: 'M1 18 5 9l4 9m-6.5-3h5M12 18l5-13 5 13m-8.5-4h7',
   personalization:
     'm10 2 2.6 4.9 5.5.7-3.9 4 1 5.5-5.2-2.5-5 2.5.9-5.5-3.9-4 5.4-.7L10 2Zm7 15 5 5',
@@ -67,6 +67,8 @@ const SettingsRowIcon = ({ page }: { page: Exclude<SettingsSection, 'general'> }
     <IconDataOutline16 />
   ) : page === 'appearance' ? (
     <IconLightOutline16 />
+  ) : page === 'language' ? (
+    <IconGlobeLanguageOutline14 />
   ) : (
     <svg
       viewBox="0 0 24 24"

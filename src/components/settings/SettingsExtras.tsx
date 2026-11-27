@@ -285,7 +285,6 @@ export const FontSettings = () => {
   const hintId = useId()
   const previewScale = followSystem ? systemFontScale : 1
   const previewFontSize = (16 + chatFontOffset[size]) * previewScale
-  const sliderStyle = { '--font-slider-progress': `${step * 25}%` } as CSSProperties
 
   useEffect(() => {
     if (!followSystem) {
@@ -319,63 +318,59 @@ export const FontSettings = () => {
   return (
     <section className={styles.fontSettings}>
       <div className={styles.fontPreviewCard}>
-        <div className={styles.fontPreviewStage}>
-          <div className={styles.fontPreviewBubble} style={{ fontSize: previewFontSize }}>
-            {t('settingsFontPreviewBubble')}
-          </div>
-          <p className={styles.fontPreviewDescription} style={{ fontSize: previewFontSize }}>
-            {t('settingsFontPreview')}
-          </p>
+        <div className={styles.fontPreviewBubble} style={{ fontSize: previewFontSize }}>
+          {t('settingsFontPreviewBubble')}
         </div>
       </div>
-      <div className={styles.fontControls}>
-        <div className={styles.fontSliderEnds} aria-hidden="true">
-          <span className={styles.fontSmallA}>A</span>
-          <span className={styles.fontLargeA}>A</span>
-        </div>
-        <div className={styles.fontSliderShell}>
-          <input
-            className={styles.fontSlider}
-            type="range"
-            min={0}
-            max={FONT_SIZE_STEPS.length - 1}
-            step={1}
-            value={step}
-            style={sliderStyle}
-            disabled={followSystem}
-            aria-label={t('settingsFont')}
-            aria-valuetext={t(fontSizeLabels[step])}
-            aria-describedby={hintId}
-            onChange={(event) => setChatFontSize(chatFontSizeAtStep(Number(event.target.value)))}
-          />
-          <div className={styles.fontTicks} aria-hidden="true">
-            {FONT_SIZE_STEPS.map((value, index) => (
-              <span
-                key={value}
-                className={`${styles.fontTick} ${index === step ? styles.fontTickSelected : ''}`}
-              >
-                <i />
-                {index === FONT_SIZE_STANDARD_STEP ? <b>{t('settingsFontDefault')}</b> : null}
-              </span>
-            ))}
-          </div>
-        </div>
-        <p id={hintId} className={styles.fontSliderHint}>
-          {t('settingsFontSliderHint')}
-        </p>
-      </div>
-      <div className={styles.fontFollowRow}>
-        <span className={styles.fontFollowLabel}>{t('settingsFontFollowSystem')}</span>
-        <button
-          type="button"
-          className={styles.switch}
-          role="switch"
-          aria-label={t('settingsFontFollowSystem')}
-          aria-checked={followSystem}
-          onClick={() => setFontFollowSystem(!followSystem)}
-        />
-      </div>
+      <p id={hintId} className={styles.fontSliderHint}>
+        {t('settingsFontSliderHint')}
+      </p>
       <p className={styles.fontFeedback}>{t('settingsFontFeedback')}</p>
+      <div className={styles.fontControlsCard}>
+        <div className={styles.fontFollowRow}>
+          <span className={styles.fontFollowLabel}>{t('settingsFontFollowSystem')}</span>
+          <button
+            type="button"
+            className={styles.switch}
+            role="switch"
+            aria-label={t('settingsFontFollowSystem')}
+            aria-checked={followSystem}
+            onClick={() => setFontFollowSystem(!followSystem)}
+          />
+        </div>
+        <div className={styles.fontControls}>
+          <div className={styles.fontSliderShell}>
+            <div className={styles.fontSliderEnds} aria-hidden="true">
+              <span className={styles.fontSmallA}>A</span>
+              <span className={styles.fontLargeA}>A</span>
+            </div>
+            <input
+              className={styles.fontSlider}
+              type="range"
+              min={0}
+              max={FONT_SIZE_STEPS.length - 1}
+              step={1}
+              value={step}
+              disabled={followSystem}
+              aria-label={t('settingsFont')}
+              aria-valuetext={t(fontSizeLabels[step])}
+              aria-describedby={hintId}
+              onChange={(event) => setChatFontSize(chatFontSizeAtStep(Number(event.target.value)))}
+            />
+            <div className={styles.fontTicks} aria-hidden="true">
+              {FONT_SIZE_STEPS.map((value, index) => (
+                <span
+                  key={value}
+                  className={`${styles.fontTick} ${index === step ? styles.fontTickSelected : ''}`}
+                >
+                  <i />
+                  {index === FONT_SIZE_STANDARD_STEP ? <b>{t('settingsFontDefault')}</b> : null}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   )
 }

@@ -17,6 +17,7 @@ export const MessageBottomSheet = ({
   footer,
   className,
   bodyClassName,
+  headerAside,
 }: {
   open: boolean
   title: ReactNode
@@ -25,10 +26,13 @@ export const MessageBottomSheet = ({
   footer?: ReactNode
   className?: string
   bodyClassName?: string
+  headerAside?: ReactNode
 }) => {
   const t = useTranslate()
   const titleId = useId()
   const overlayRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
   const visible = useExitPresence(open ? true : null, overlayRef)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
@@ -38,17 +42,46 @@ export const MessageBottomSheet = ({
       return
     }
     const unregister = registerOverlayToken(() => onCloseRef.current())
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const focusFrame = requestAnimationFrame(() => closeRef.current?.focus())
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
         event.stopImmediatePropagation()
         closeTopmostModal()
+        return
+      }
+      if (event.key !== 'Tab' || !panelRef.current) {
+        return
+      }
+      const focusable = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => element.offsetParent !== null)
+      const first = focusable[0]
+      const last = focusable.at(-1)
+      if (!first || !last) {
+        event.preventDefault()
+        return
+      }
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
       }
     }
     document.addEventListener('keydown', onKeyDown, true)
     return () => {
       unregister()
+      cancelAnimationFrame(focusFrame)
       document.removeEventListener('keydown', onKeyDown, true)
+      if (previousFocus?.isConnected) {
+        previousFocus.focus({ preventScroll: true })
+      }
     }
   }, [open])
 
@@ -80,6 +113,7 @@ export const MessageBottomSheet = ({
       onClick={(event) => event.stopPropagation()}
     >
       <section
+        ref={panelRef}
         className={clsx(styles.sheet, className)}
         role="dialog"
         aria-modal="true"
@@ -90,12 +124,16 @@ export const MessageBottomSheet = ({
           <div id={titleId} className={styles.sheetTitle}>
             {title}
           </div>
-          <IconButton
-            icon={<IconCloseOutline16 />}
-            tooltip={t('close')}
-            tooltipPlacement="bottom"
-            onClick={() => onCloseRef.current()}
-          />
+          <div className={styles.sheetHeaderActions}>
+            {headerAside}
+            <IconButton
+              ref={closeRef}
+              icon={<IconCloseOutline16 />}
+              tooltip={t('close')}
+              tooltipPlacement="bottom"
+              onClick={() => onCloseRef.current()}
+            />
+          </div>
         </header>
         <div className={clsx(styles.sheetBody, bodyClassName)}>{children}</div>
         {footer ? <footer className={styles.sheetFooter}>{footer}</footer> : null}

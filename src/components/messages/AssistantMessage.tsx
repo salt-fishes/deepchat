@@ -357,11 +357,6 @@ export const AssistantMessage = memo(function AssistantMessage({
           void copyWithFeedback(text)
         }}
         onShare={shareSelection}
-        onRegenerate={() => {
-          setSelection(null)
-          regenerate()
-        }}
-        busy={busy}
       />
       <ShareCardDialog open={shareOpen} text={responseText} onClose={() => setShareOpen(false)} />
       <UsagePanel open={usageOpen} message={message} onClose={() => setUsageOpen(false)} />

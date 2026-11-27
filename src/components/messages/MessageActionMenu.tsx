@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom'
 import { useTranslate } from '../../i18n/index.js'
 import { useDismiss } from '../base/anchored.js'
 import { registerOverlayToken } from '../base/Modal.js'
-import { IconCopyOutline16, IconEditOutline16, IconMultiSelect16 } from '../base/icons.js'
-import { IconShareOutline16 } from './MessageIcons.js'
+import { IconCopyOutline16, IconEditOutline16 } from '../base/icons.js'
+import { IconSelectTextOutline16, IconShareOutline16 } from './MessageIcons.js'
 import styles from './MessageInteractions.module.css'
 import type { MessageLongPressDetail } from './useMessageGestures.js'
 
@@ -70,7 +70,12 @@ export const MessageActionMenu = ({
   }
   const options: ActionOption[] = [
     { key: 'copy', label: t('copy'), icon: <IconCopyOutline16 />, onSelect: onCopy },
-    { key: 'select', label: t('selectText'), icon: <IconMultiSelect16 />, onSelect: onSelectText },
+    {
+      key: 'select',
+      label: t('selectText'),
+      icon: <IconSelectTextOutline16 />,
+      onSelect: onSelectText,
+    },
     {
       key: 'edit',
       label: t('edit'),

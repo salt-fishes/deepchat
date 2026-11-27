@@ -1,9 +1,10 @@
-import { useMemo, type CSSProperties } from 'react'
+import { useMemo } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { useSettings } from '../../services/settings.js'
 import type { AssistantMessage as AssistantMessageType } from '../../services/chat/types.js'
 import { estimateMessageCost, type TokenRate } from '../../services/pricing.js'
 import { MessageBottomSheet } from './MessageBottomSheet.js'
+import { IconUsageOutline16 } from './MessageIcons.js'
 import styles from './MessageInteractions.module.css'
 
 const formatCost = (value: number, locale: string) => {
@@ -37,65 +38,77 @@ export const UsagePanel = ({
     [message.createdAt, message.model, message.usage]
   )
   const number = useMemo(() => new Intl.NumberFormat(locale), [locale])
-  const row = (label: string, rate: TokenRate) => (
-    <tr key={label}>
-      <td className={styles.usageRowLabel}>{label}</td>
-      <td>{formatUnitPrice(rate.unitPrice, locale)}</td>
-      <td>{number.format(rate.tokens)}</td>
-      <td>{formatCost(rate.amount, locale)}</td>
-    </tr>
+  const rateRow = (section: string, detail: string | null, rate: TokenRate) => (
+    <div className={styles.usageRate}>
+      <div className={styles.usageRateName}>
+        <span>{section}</span>
+        {detail ? <strong>{detail}</strong> : null}
+      </div>
+      <div className={styles.usageRateValues}>
+        <div>
+          <span>{t('usageUnitPrice')}</span>
+          <b>{formatUnitPrice(rate.unitPrice, locale)}</b>
+        </div>
+        <div>
+          <span>{t('usageTokens')}</span>
+          <b>{number.format(rate.tokens)}</b>
+        </div>
+        <div>
+          <span>{t('usageAmount')}</span>
+          <b>{formatCost(rate.amount, locale)}</b>
+        </div>
+      </div>
+    </div>
   )
 
+  const amount = estimate
+    ? estimate.totalAmount > 0
+      ? formatCost(estimate.totalAmount, locale)
+      : '¥0'
+    : '—'
+
   return (
-    <MessageBottomSheet open={open} title={t('usageTitle')} onClose={onClose}>
+    <MessageBottomSheet
+      open={open}
+      title={
+        <span className={styles.sheetTitleGroup}>
+          <span className={styles.sheetHeaderIcon} aria-hidden="true">
+            <IconUsageOutline16 />
+          </span>
+          <span>{t('usageTitle')}</span>
+          {estimate ? (
+            <span className={styles.usageBadge}>
+              {t(estimate.totalAmount > 0 ? 'usageEstimateBadge' : 'usageFree')}
+            </span>
+          ) : null}
+        </span>
+      }
+      headerAside={<strong className={styles.usageHeaderAmount}>{amount}</strong>}
+      onClose={onClose}
+    >
       {!estimate ? (
         <div className={styles.usageUnavailable}>{t('usageUnavailable')}</div>
       ) : (
         <>
-          <div className={styles.usageTotal}>
-            <span className={styles.usageTotalLabel}>{t('usageAmount')}</span>
-            <strong className={styles.usageTotalValue}>
-              {estimate.totalAmount > 0 ? formatCost(estimate.totalAmount, locale) : t('usageFree')}
-            </strong>
-          </div>
           <div className={styles.usagePeriod}>
             {t(estimate.period === 'peak' ? 'usageEstimatePeak' : 'usageEstimateOffPeak')}
           </div>
-          <table className={styles.usageTable}>
-            <thead>
-              <tr>
-                <th />
-                <th>{t('usageUnitPrice')}</th>
-                <th>{t('usageTokens')}</th>
-                <th>{t('usageAmount')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className={styles.usageSection}>
-                <td colSpan={4}>{t('usageInput')}</td>
-              </tr>
-              {row(t('usageCacheMiss'), estimate.cacheMiss)}
-              {estimate.cacheHit.tokens > 0 ? row(t('usageCacheHit'), estimate.cacheHit) : null}
-              <tr className={styles.usageSection}>
-                <td colSpan={4}>{t('usageOutput')}</td>
-              </tr>
-              {row(t('usageOutput'), estimate.output)}
-            </tbody>
-          </table>
+          <div className={styles.usageCard}>
+            {rateRow(t('usageInput'), t('usageCacheMiss'), estimate.cacheMiss)}
+            {estimate.cacheHit.tokens > 0
+              ? rateRow(t('usageInput'), t('usageCacheHit'), estimate.cacheHit)
+              : null}
+            {rateRow(t('usageOutput'), null, estimate.output)}
+          </div>
           <div className={styles.usageContext}>
-            <div className={styles.usageContextText}>
+            <span className={styles.usageContextMark} aria-hidden="true" />
+            <span>
               {t('usageContext', {
                 percent: estimate.contextPercent.toLocaleString(locale, {
                   maximumFractionDigits: 2,
                 }),
               })}
-            </div>
-            <div className={styles.usageContextTrack} aria-hidden="true">
-              <span
-                className={styles.usageContextFill}
-                style={{ width: `${estimate.contextPercent}%` } as CSSProperties}
-              />
-            </div>
+            </span>
           </div>
           <div className={styles.usageDisclaimer}>{t('usageDisclaimer')}</div>
         </>

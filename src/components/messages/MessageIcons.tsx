@@ -10,10 +10,8 @@ export const IconShareOutline16 = () => (
     strokeLinejoin="round"
     aria-hidden="true"
   >
-    <circle cx="4" cy="8" r="2.2" />
-    <circle cx="11.5" cy="3.5" r="2.2" />
-    <circle cx="11.5" cy="12.5" r="2.2" />
-    <path d="m5.8 7 4.1-2.2M5.8 9l4.1 2.2" />
+    <path d="M8 10.25v-7.5m0 0L5.5 5M8 2.75 10.5 5" />
+    <path d="M3.75 8.5v3.75a1.5 1.5 0 0 0 1.5 1.5h5.5a1.5 1.5 0 0 0 1.5-1.5V8.5" />
   </svg>
 )
 
@@ -24,14 +22,32 @@ export const IconUsageOutline16 = () => (
     viewBox="0 0 16 16"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.35"
+    strokeWidth="1.3"
     strokeLinecap="round"
     strokeLinejoin="round"
     aria-hidden="true"
   >
-    <circle cx="8" cy="8" r="6.1" />
-    <path d="M5 6.2h6M5 9.8h6M8 4.7v6.6" />
-    <path d="M6.2 4.9c.7-1 2.9-1 3.6 0" />
+    <rect x="2.25" y="1.75" width="11.5" height="12.5" rx="2.25" />
+    <path d="M5 5.25h6M5 8h6M5 10.75h3.5" />
+    <path d="M10.75 10.75h.01" />
+  </svg>
+)
+
+export const IconSelectTextOutline16 = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M5.25 2.75H4a1.25 1.25 0 0 0-1.25 1.25v7.25A1.25 1.25 0 0 0 4 12.5h1.25" />
+    <path d="M6.5 5h5.25M6.5 8h4.25M6.5 11h3.25" />
+    <path d="m10.75 2.75 2.5 2.5-2.5 2.5M13.25 5.25H9.5" />
   </svg>
 )
 

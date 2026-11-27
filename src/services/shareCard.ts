@@ -14,7 +14,7 @@ const getBeijingTime = (value: number | Date): Date => {
 const BODY_FONT_SIZE = 36
 const BODY_LINE_HEIGHT = 54
 const CARD_PADDING = 84
-const BODY_TOP = 250
+const BODY_TOP = 300
 const CARD_FOOTER_HEIGHT = 150
 
 const pad = (value: number) => String(value).padStart(2, '0')
@@ -243,21 +243,8 @@ export const createShareCardFile = async ({
     throw new Error('Canvas is unavailable')
   }
 
-  const background = context.createLinearGradient(0, 0, SHARE_CARD_WIDTH, canvas.height)
-  background.addColorStop(0, '#f5f7ff')
-  background.addColorStop(0.55, '#ffffff')
-  background.addColorStop(1, '#eef3ff')
-  context.fillStyle = background
+  context.fillStyle = '#ffffff'
   context.fillRect(0, 0, canvas.width, canvas.height)
-
-  context.fillStyle = 'rgba(77, 107, 255, 0.08)'
-  context.beginPath()
-  context.arc(SHARE_CARD_WIDTH - 36, 94, 180, 0, Math.PI * 2)
-  context.fill()
-  context.fillStyle = 'rgba(77, 107, 255, 0.05)'
-  context.beginPath()
-  context.arc(42, canvas.height - 50, 150, 0, Math.PI * 2)
-  context.fill()
 
   context.fillStyle = '#4d6bff'
   roundedRect(context, CARD_PADDING, 78, 62, 62, 18)
@@ -285,6 +272,11 @@ export const createShareCardFile = async ({
   context.textAlign = 'right'
   context.fillText('AI ANSWER', SHARE_CARD_WIDTH - CARD_PADDING, 119)
   context.textAlign = 'left'
+
+  context.fillStyle = 'rgba(23, 32, 51, 0.1)'
+  context.font = '120px Georgia, "Times New Roman", serif'
+  context.textBaseline = 'top'
+  context.fillText('“', CARD_PADDING - 8, 164)
 
   context.fillStyle = '#20283a'
   context.font = bodyFont

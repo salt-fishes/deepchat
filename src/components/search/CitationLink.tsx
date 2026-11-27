@@ -91,7 +91,7 @@ export const CitationLink = ({ source }: { source: Source }) => {
                 }
               }}
             >
-              <SourceCard source={source} onOpen={close} />
+              <SourceCard source={source} variant="preview" onOpen={close} />
             </div>,
             document.body
           )

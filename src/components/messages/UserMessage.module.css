@@ -114,36 +114,3 @@
 .alwaysShow {
   opacity: 1;
 }
-
-.editor {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--dsw-alias-brand-primary);
-  border-radius: 22px;
-  background-color: var(--dsw-alias-bg-base);
-  overflow: hidden;
-}
-
-.textarea {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 44px;
-  max-height: 202px;
-  padding: 10px 16px;
-  border: none;
-  outline: none;
-  resize: none;
-  font: inherit;
-  font-size: 16px;
-  line-height: 24px;
-  color: var(--dsw-alias-label-primary);
-  background: transparent;
-}
-
-.editorActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin: 6px 10px 10px;
-}

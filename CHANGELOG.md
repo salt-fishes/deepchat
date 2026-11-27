@@ -4,6 +4,26 @@ All notable changes to deepchat are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/).
 
+## [1.19.0] - 2026-11-27
+
+### Changed
+
+- Aligned Settings dialogs, font controls, message menus, editing, usage and share surfaces with the supplied DeepSeek design references.
+- Double-click message editing now prefills the bottom composer while keeping the original message visible.
+- Usage and share-card bottom sheets now span the full mobile width and extend to the bottom edge, with safe-area padding inside the sheet.
+- Redesigned the per-reply usage panel with a reference-style header, estimate badge, grouped rate card and context footer.
+- Updated share, usage and text-selection icons to a consistent outline style.
+- Restored distinct floating citation previews and full-card search-result sources.
+- Refined the thinking-area fade so it remains localized, soft and gap-free while the title stays sticky.
+- Reworked share-card rendering with a cleaner white layout, quote treatment and independent deepchat branding.
+
+### Fixed
+
+- Bottom-sheet actions remain reachable above the Android gesture area without lifting the sheet off the bottom edge.
+- Thinking content no longer leaks through the gap above the sticky title.
+
+[1.19.0]: https://github.com/salt-fishes/deepchat/releases/tag/v1.19
+
 ## [1.18.0] - 2026-11-27
 
 ### Added

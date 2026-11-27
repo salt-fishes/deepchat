@@ -40,15 +40,24 @@
 }
 
 .dialog {
-  width: 360px;
-  max-width: calc(100% - 32px);
-  padding: 22px 20px 20px;
+  --modal-header-gap: 18px;
+  width: 380px;
+  max-width: calc(100% - 28px);
+  padding: 24px 0 0;
+  overflow: hidden;
+  border-radius: 26px;
+}
+
+.dialog > div:first-child {
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .headerTitle {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -56,54 +65,44 @@
   display: grid;
   flex: none;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-button-primary-fill);
+  width: 28px;
+  height: 28px;
+  color: var(--dsw-alias-label-primary);
 }
 
 .headerIcon svg {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
 }
 
 .options {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .option {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 52px;
-  padding: 0 14px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 14px;
+  gap: 14px;
+  min-height: 60px;
+  padding: 0 28px;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
   user-select: none;
-  transition:
-    border-color var(--ds-transition-duration) var(--ds-ease-in-out),
-    background-color var(--ds-transition-duration) var(--ds-ease-in-out);
+  transition: background-color var(--ds-transition-duration) var(--ds-ease-in-out);
 }
 
-.option:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .option:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .option:has(input:focus-visible) {
   outline: 2px solid var(--dsw-alias-button-primary-fill);
-  outline-offset: 2px;
-}
-
-.option:has(input:checked) {
-  border-color: var(--dsw-alias-brand-primary);
-  background: var(--dsw-specific-selector);
+  outline-offset: -3px;
 }
 
 .option input {
@@ -119,8 +118,8 @@
   position: relative;
   display: block;
   flex: none;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border: 2px solid var(--dsw-alias-border-l2);
   border-radius: 50%;
   transition:
@@ -131,7 +130,7 @@
 .radioMark::after {
   content: '';
   position: absolute;
-  inset: 3px;
+  inset: 4px;
   border-radius: 50%;
   background: var(--dsw-alias-button-primary-fill);
   transform: scale(0);
@@ -152,26 +151,53 @@
 
 .optionLabel {
   min-width: 0;
-  font-size: 15px;
-  line-height: 22px;
+  font-size: 16px;
+  line-height: 24px;
 }
 
-@media not all and (min-width: 768px) {
-  .dialog {
-    width: 380px;
-    padding: 22px 18px 18px;
-  }
+.dialog > div:last-child {
+  flex-shrink: 0;
+  margin-top: 12px;
+}
 
-  .option {
-    min-height: 54px;
-  }
+.dialog button {
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border-radius: 0;
+  background: transparent;
+  color: var(--dsw-alias-brand-text);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.dialog button:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-brand-text);
+}
+
+.dialog button:active:not(:disabled) {
+  transform: none;
+}
+
+.dialog button:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--dsw-alias-button-primary-fill);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .trigger,
   .option,
   .radioMark,
-  .radioMark::after {
+  .radioMark::after,
+  .dialog button {
     transition: none;
+  }
+
+  .option:active .radioMark {
+    transform: none;
   }
 }

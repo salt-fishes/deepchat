@@ -1,16 +1,13 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useIsMobile } from '../../app/viewport.js'
 import { IconChevronDownOutline14, IconEditOutline16 } from '../base/icons.js'
-import { editMessage, retryUpload } from '../../services/chat/store.js'
-import { stopReadAloud } from '../../services/speech/readAloud.js'
+import { retryUpload } from '../../services/chat/store.js'
 import { shareText } from '../../services/share.js'
 import type { UserMessage as UserMessageType } from '../../services/chat/types.js'
-import { Button } from '../base/Button.js'
 import { IconButton } from '../base/IconButton.js'
 import { showToast } from '../base/toastState.js'
-import { ensureApiKey } from '../settings/settingsDialogState.js'
 import {
   BranchSwitcher,
   type MessageVersions,
@@ -19,7 +16,7 @@ import {
 import { MessageFile } from './MessageFile.js'
 import { CopyButton, copyWithFeedback } from './CopyButton.js'
 import { MessageActionMenu } from './MessageActionMenu.js'
-import { EDIT_USER_MESSAGE_EVENT, type EditUserMessageDetail } from './messageGestureEvents.js'
+import { requestUserMessageEdit } from './messageGestureEvents.js'
 import {
   selectMessageText,
   useMessageGestures,
@@ -51,9 +48,6 @@ export const UserMessage = memo(function UserMessage({
   onSelectVersion: SelectMessageVersion
 }) {
   const t = useTranslate()
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(message.content)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isMobile = useIsMobile()
   const [expanded, setExpanded] = useState(false)
   const [overflow, setOverflow] = useState(false)
@@ -70,37 +64,14 @@ export const UserMessage = memo(function UserMessage({
     const observer = new ResizeObserver(measure)
     observer.observe(text)
     return () => observer.disconnect()
-  }, [editing, expanded, isMobile, message.content])
-  const canSend = !busy && (draft.trim() !== '' || message.files.length > 0)
+  }, [expanded, isMobile, message.content])
 
   const beginEdit = useCallback(() => {
     if (busy) {
       return
     }
-    setDraft(message.content)
-    setEditing(true)
-  }, [busy, message.content])
-
-  useEffect(() => {
-    const onEditRequest = (event: Event) => {
-      const detail = (event as CustomEvent<EditUserMessageDetail>).detail
-      if (detail?.sessionId !== sessionId || detail.userId !== message.id) {
-        return
-      }
-      beginEdit()
-      requestAnimationFrame(() => {
-        textareaRef.current?.focus()
-        rootRef.current?.scrollIntoView({
-          block: 'center',
-          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-            ? 'auto'
-            : 'smooth',
-        })
-      })
-    }
-    window.addEventListener(EDIT_USER_MESSAGE_EVENT, onEditRequest)
-    return () => window.removeEventListener(EDIT_USER_MESSAGE_EVENT, onEditRequest)
-  }, [beginEdit, sessionId, message.id])
+    requestUserMessageEdit(sessionId, message.id)
+  }, [busy, sessionId, message.id])
 
   const gestureProps = useMessageGestures({
     rootRef,
@@ -111,21 +82,6 @@ export const UserMessage = memo(function UserMessage({
       }
     },
   })
-
-  useLayoutEffect(() => {
-    const textarea = textareaRef.current
-    if (editing && textarea) {
-      textarea.style.height = 'auto'
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 202)}px`
-    }
-  }, [editing, draft])
-
-  const sendEdit = () => {
-    if (canSend && ensureApiKey() && editMessage(sessionId, message.id, draft.trim())) {
-      stopReadAloud()
-      setEditing(false)
-    }
-  }
 
   return (
     <div
@@ -151,82 +107,43 @@ export const UserMessage = memo(function UserMessage({
           ))}
         </div>
       ) : null}
-      {editing ? (
-        <div className={styles.editor}>
-          <textarea
-            ref={textareaRef}
-            className={styles.textarea}
-            aria-label={t('editMessage')}
-            autoFocus
-            rows={1}
-            value={draft}
-            disabled={busy}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing) {
-                return
-              }
-              if (event.key === 'Escape') {
-                setEditing(false)
-              } else if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !isMobile) {
-                event.preventDefault()
-                sendEdit()
-              }
-            }}
-          />
-          <div className={styles.editorActions}>
-            <Button size="s" variant="outlined" onClick={() => setEditing(false)}>
-              {t('cancel')}
-            </Button>
-            <Button size="s" disabled={!canSend} onClick={sendEdit}>
-              {t('send')}
-            </Button>
+      {message.content ? (
+        <div
+          className={clsx(styles.bubble, isMobile && overflow && !expanded && styles.bubbleFaded)}
+        >
+          <div
+            ref={bubbleText}
+            data-message-text="true"
+            className={clsx(isMobile && !expanded && styles.bubbleClamp)}
+          >
+            {message.content}
           </div>
-        </div>
-      ) : (
-        <>
-          {message.content ? (
-            <div
-              className={clsx(
-                styles.bubble,
-                isMobile && overflow && !expanded && styles.bubbleFaded
-              )}
+          {isMobile && (overflow || expanded) ? (
+            <button
+              type="button"
+              className={styles.bubbleToggle}
+              aria-expanded={expanded}
+              aria-label={t(expanded ? 'collapsePrompt' : 'expandPrompt')}
+              onClick={() => setExpanded(!expanded)}
             >
-              <div
-                ref={bubbleText}
-                data-message-text="true"
-                className={clsx(isMobile && !expanded && styles.bubbleClamp)}
-              >
-                {message.content}
-              </div>
-              {isMobile && (overflow || expanded) ? (
-                <button
-                  type="button"
-                  className={styles.bubbleToggle}
-                  aria-expanded={expanded}
-                  aria-label={t(expanded ? 'collapsePrompt' : 'expandPrompt')}
-                  onClick={() => setExpanded(!expanded)}
-                >
-                  <IconChevronDownOutline14 />
-                </button>
-              ) : null}
-            </div>
+              <IconChevronDownOutline14 />
+            </button>
           ) : null}
-          <div className={styles.bottom}>
-            <div className={clsx(styles.actions, isLast && styles.alwaysShow)}>
-              {message.content ? <CopyButton text={message.content} /> : null}
-              <IconButton
-                icon={<IconEditOutline16 />}
-                tooltip={t('editMessage')}
-                tooltipPlacement="bottom"
-                disabled={busy}
-                onClick={beginEdit}
-              />
-            </div>
-            <BranchSwitcher versions={versions} disabled={busy} onSelect={onSelectVersion} />
-          </div>
-        </>
-      )}
+        </div>
+      ) : null}
+      <div className={styles.bottom}>
+        <div className={clsx(styles.actions, isLast && styles.alwaysShow)}>
+          {message.content ? <CopyButton text={message.content} /> : null}
+          <IconButton
+            icon={<IconEditOutline16 />}
+            tooltip={t('editMessage')}
+            tooltipPlacement="bottom"
+            disabled={busy}
+            onClick={beginEdit}
+          />
+        </div>
+        <BranchSwitcher versions={versions} disabled={busy} onSelect={onSelectVersion} />
+      </div>
       <MessageActionMenu
         detail={actionMenu}
         onClose={() => setActionMenu(null)}

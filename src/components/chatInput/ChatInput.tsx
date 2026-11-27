@@ -11,9 +11,13 @@ import {
 } from '../base/icons.js'
 import { setChatPreferences, useChatPreferences, useSettings } from '../../services/settings.js'
 import { useIsMobile } from '../../app/viewport.js'
-import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
+import { sendMessage, stopReply, useChatStore, editMessage } from '../../services/chat/store.js'
+import { saveFiles } from '../../services/chat/db.js'
+import type { FileAttachment } from '../../services/chat/types.js'
+import { useMessageEdit } from '../../services/chat/messageEdit.js'
 import {
   addDraftFiles,
+  clearDraft,
   EMPTY_DRAFT,
   getDraft,
   prepareDraftMessage,
@@ -37,6 +41,11 @@ import { useVoiceInput } from './useVoiceInput.js'
 import { Spectrum } from './Spectrum.js'
 import { useTranslate } from '../../i18n/index.js'
 import { ThinkingEffortTrigger } from './ThinkingEffort.js'
+import { registerOverlayToken } from '../base/Modal.js'
+import {
+  EDIT_USER_MESSAGE_EVENT,
+  type EditUserMessageDetail,
+} from '../messages/messageGestureEvents.js'
 import styles from './ChatInput.module.css'
 
 const attachmentPrompts = [
@@ -54,9 +63,12 @@ export const ChatInput = memo(function ChatInput({ sessionId }: { sessionId: str
 
 const Input = ({ sessionId }: { sessionId: string | null }) => {
   const t = useTranslate()
-  const draft = useDrafts((state) => state.drafts.get(sessionId) ?? EMPTY_DRAFT)
+  const editTarget = useMessageEdit((state) => state.target)
+  const editing = editTarget?.sessionId === sessionId
+  const draftKey = editing && editTarget ? `edit:${sessionId}:${editTarget.userId}` : sessionId
+  const draft = useDrafts((state) => state.drafts.get(draftKey) ?? EMPTY_DRAFT)
   const { text, attachments } = draft
-  const setText = (value: string) => setDraftText(sessionId, value)
+  const setText = (value: string) => setDraftText(draftKey, value)
   const draftReady = useUploads((state) => prepareDraftMessage(draft, state.tasks) !== null)
   const streaming = useChatStore(
     (state) => sessionId !== null && Object.hasOwn(state.streaming, sessionId)
@@ -67,6 +79,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const isMobile = useIsMobile()
   const search = useSettings((state) => overrides?.search ?? state.search)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [submittingEdit, setSubmittingEdit] = useState(false)
   const closeSheet = useCallback(() => setSheetOpen(false), [])
   const attachButtonRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -76,16 +89,71 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     return () => window.removeEventListener('deepchat:focus-composer', focusComposer)
   }, [])
 
+  const cancelEdit = useCallback(() => {
+    clearDraft(draftKey)
+    useMessageEdit.getState().clear()
+    closeSheet()
+  }, [closeSheet, draftKey])
+
+  useEffect(() => {
+    const onEditRequest = (event: Event) => {
+      const detail = (event as CustomEvent<EditUserMessageDetail>).detail
+      if (!sessionId || detail?.sessionId !== sessionId) {
+        return
+      }
+      const message = useChatStore
+        .getState()
+        .sessionCache[sessionId]?.messages.find((item) => item.id === detail.userId)
+      if (!message || message.role !== 'user') {
+        return
+      }
+      const previous = useMessageEdit.getState().target
+      if (previous?.sessionId === sessionId) {
+        clearDraft(`edit:${sessionId}:${previous.userId}`)
+      }
+      const editKey = `edit:${sessionId}:${detail.userId}`
+      clearDraft(editKey)
+      setDraftText(editKey, message.content)
+      useMessageEdit.getState().begin(detail)
+      closeSheet()
+      const target = document.querySelector<HTMLElement>(
+        `[data-prompt-id="${CSS.escape(detail.userId)}"]`
+      )
+      target?.scrollIntoView({
+        block: 'center',
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      })
+      requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
+    }
+    window.addEventListener(EDIT_USER_MESSAGE_EVENT, onEditRequest)
+    return () => window.removeEventListener(EDIT_USER_MESSAGE_EVENT, onEditRequest)
+  }, [closeSheet, sessionId])
+
+  useEffect(() => {
+    if (!editing) {
+      return
+    }
+    return registerOverlayToken(cancelEdit)
+  }, [cancelEdit, editing])
+
+  useEffect(() => {
+    const target = useMessageEdit.getState().target
+    if (target && target.sessionId !== sessionId) {
+      clearDraft(`edit:${target.sessionId}:${target.userId}`)
+      useMessageEdit.getState().clear()
+    }
+  }, [sessionId])
+
   const acceptFiles = (files: File[], recentPhotoId?: string) => {
-    if (files.length === 0 || useChatStore.getState().importingHistory || !ensureApiKey()) {
+    if (
+      files.length === 0 ||
+      submittingEdit ||
+      useChatStore.getState().importingHistory ||
+      !ensureApiKey()
+    ) {
       return false
     }
-    const error = addDraftFiles(
-      sessionId,
-      files,
-      useSettings.getState().apiKey ?? '',
-      recentPhotoId
-    )
+    const error = addDraftFiles(draftKey, files, useSettings.getState().apiKey ?? '', recentPhotoId)
     if (error) {
       showToast(error)
       return false
@@ -95,18 +163,18 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const retryFile = useCallback(
     (id: string) => {
       if (!useChatStore.getState().importingHistory && ensureApiKey()) {
-        retryDraftAttachment(sessionId, id, useSettings.getState().apiKey ?? '')
+        retryDraftAttachment(draftKey, id, useSettings.getState().apiKey ?? '')
       }
     },
-    [sessionId]
+    [draftKey]
   )
   const removeFile = useCallback(
     (id: string) => {
       if (!useChatStore.getState().importingHistory) {
-        removeDraftAttachment(sessionId, id)
+        removeDraftAttachment(draftKey, id)
       }
     },
-    [sessionId]
+    [draftKey]
   )
   /**
    * 图片附件的查看/剪裁入口：view 模式整图回览、crop 模式直接进裁剪框。
@@ -117,7 +185,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       if (useChatStore.getState().importingHistory || !ensureApiKey()) {
         return
       }
-      const attachment = getDraft(sessionId).attachments.find((item) => item.id === id)
+      const attachment = getDraft(draftKey).attachments.find((item) => item.id === id)
       if (!attachment?.isImage) {
         return
       }
@@ -134,7 +202,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         return
       }
       const error = replaceDraftAttachment(
-        sessionId,
+        draftKey,
         id,
         result,
         useSettings.getState().apiKey ?? ''
@@ -143,14 +211,14 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         showToast(error)
       }
     },
-    [sessionId]
+    [draftKey, sessionId]
   )
   const dragging = useFileDrop(acceptFiles)
 
   /** 转写结果插入到光标处，并把光标移到插入内容之后 */
   const voice = useVoiceInput((transcript) => {
     const textarea = textareaRef.current
-    const current = getDraft(sessionId).text
+    const current = getDraft(draftKey).text
     const start = textarea?.selectionStart ?? current.length
     const end = textarea?.selectionEnd ?? current.length
     setText(current.slice(0, start) + transcript + current.slice(end))
@@ -234,7 +302,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   useEffect(() => clearLongPress, [])
 
   // 排队、上传中或上传失败的附件都留在输入框，全部上传成功后才能发送
-  const canSend = !importingHistory && !streaming && voice.status === 'idle' && draftReady
+  const canSend =
+    !importingHistory && !streaming && !submittingEdit && voice.status === 'idle' && draftReady
   const emptyDraft = !text && attachments.length === 0
   const showVoiceButton = isMobile && (sheetOpen || emptyDraft || voice.status !== 'idle')
   const showSendButton = !showVoiceButton || !emptyDraft || sheetOpen
@@ -244,16 +313,80 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     transcribing: 'voiceInputCancel',
   } as const
 
+  const submitEdit = async (prepared: NonNullable<ReturnType<typeof prepareDraftMessage>>) => {
+    if (!editing || !editTarget || !sessionId) {
+      return
+    }
+    const original = useChatStore
+      .getState()
+      .sessionCache[sessionId]?.messages.find((message) => message.id === editTarget.userId)
+    if (!original || original.role !== 'user') {
+      cancelEdit()
+      return
+    }
+    setSubmittingEdit(true)
+    try {
+      const addedFiles: FileAttachment[] = prepared.files.map((file) => ({
+        id: file.id,
+        serverId: file.serverId,
+        name: file.name,
+        size: file.size,
+        isImage: file.isImage,
+        mimeType: file.mimeType,
+      }))
+      if (addedFiles.length > 0) {
+        try {
+          await saveFiles(prepared.files.map((file) => ({ id: file.id, blob: file.blob })))
+        } catch {
+          showToast(t('sessionSaveFailed'))
+          return
+        }
+      }
+      const currentTarget = useMessageEdit.getState().target
+      if (
+        currentTarget?.sessionId !== sessionId ||
+        currentTarget.userId !== editTarget.userId ||
+        currentTarget.generation !== editTarget.generation ||
+        useChatStore.getState().activeId !== sessionId
+      ) {
+        return
+      }
+      if (
+        !editMessage(sessionId, editTarget.userId, prepared.text, [
+          ...original.files,
+          ...addedFiles,
+        ])
+      ) {
+        return
+      }
+      stopReadAloud()
+      clearDraft(draftKey)
+      useMessageEdit.getState().clear()
+      closeSheet()
+      if (isMobile) {
+        textareaRef.current?.blur()
+      } else {
+        textareaRef.current?.focus()
+      }
+    } finally {
+      setSubmittingEdit(false)
+    }
+  }
+
   const send = () => {
-    if (
-      useChatStore.getState().importingHistory ||
-      voice.status !== 'idle' ||
-      !prepareDraftMessage(getDraft(sessionId), useUploads.getState().tasks)
-    ) {
+    if (useChatStore.getState().importingHistory || voice.status !== 'idle' || submittingEdit) {
+      return
+    }
+    const prepared = prepareDraftMessage(getDraft(draftKey), useUploads.getState().tasks)
+    if (!prepared || !ensureApiKey()) {
+      return
+    }
+    if (editing) {
+      void submitEdit(prepared)
       return
     }
     // 文本与上传完成态由提交动作读取最新快照，不使用上一次渲染的草稿。
-    if (!ensureApiKey() || !sendMessage(sessionId)) {
+    if (!sendMessage(sessionId)) {
       return
     }
     stopReadAloud()
@@ -320,7 +453,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             rows={2}
             // 移动端不自动聚焦，避免一打开就弹出键盘
             autoFocus={!isMobile}
-            disabled={importingHistory || (recording && isMobile)}
+            disabled={importingHistory || submittingEdit || (recording && isMobile)}
             onFocus={isMobile ? closeSheet : undefined}
             value={text}
             onChange={(event) => setText(event.target.value)}
@@ -336,6 +469,11 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
               }
             }}
             onKeyDown={(event) => {
+              if (event.key === 'Escape' && editing) {
+                event.preventDefault()
+                cancelEdit()
+                return
+              }
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault()
                 send()

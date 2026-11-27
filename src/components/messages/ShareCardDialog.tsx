@@ -4,6 +4,7 @@ import { saveImageFile, shareImageFile } from '../../services/share.js'
 import { createShareCardFile, formatShareCardDate } from '../../services/shareCard.js'
 import { showToast } from '../base/toastState.js'
 import { Button } from '../base/Button.js'
+import { IconButton } from '../base/IconButton.js'
 import { IconDownloadOutline16 } from '../base/icons.js'
 import { MessageBottomSheet } from './MessageBottomSheet.js'
 import { IconShareOutline16 } from './MessageIcons.js'
@@ -98,24 +99,29 @@ export const ShareCardDialog = ({
   return (
     <MessageBottomSheet
       open={open}
-      title={t('shareCardTitle')}
+      title={
+        <span className={styles.sheetTitleGroup}>
+          <span className={styles.sheetHeaderIcon} aria-hidden="true">
+            <IconShareOutline16 />
+          </span>
+          <span>{t('shareCardTitle')}</span>
+        </span>
+      }
+      headerAside={
+        <IconButton
+          icon={<IconShareOutline16 />}
+          tooltip={t('shareCardShare')}
+          tooltipPlacement="bottom"
+          disabled={status !== 'ready' || !!action}
+          onClick={() => void share()}
+        />
+      }
       onClose={onClose}
       footer={
-        <>
-          <Button
-            size="s"
-            variant="outlined"
-            disabled={status !== 'ready' || !!action}
-            onClick={() => void save()}
-          >
-            <IconDownloadOutline16 />
-            {action === 'save' ? t('shareCardPreparing') : t('shareCardSave')}
-          </Button>
-          <Button size="s" disabled={status !== 'ready' || !!action} onClick={() => void share()}>
-            <IconShareOutline16 />
-            {action === 'share' ? t('shareCardPreparing') : t('shareCardShare')}
-          </Button>
-        </>
+        <Button block disabled={status !== 'ready' || !!action} onClick={() => void save()}>
+          <IconDownloadOutline16 />
+          {action === 'save' ? t('shareCardPreparing') : t('shareCardSave')}
+        </Button>
       }
     >
       {status === 'preparing' ? (

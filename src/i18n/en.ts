@@ -339,6 +339,7 @@ export const en = {
   edit: 'Edit',
   usageTitle: 'Usage for this turn',
   usageFree: 'Free',
+  usageEstimateBadge: 'Estimate',
   usageEstimatePeak: 'Estimated at peak-hour rates',
   usageEstimateOffPeak: 'Estimated at off-peak rates',
   usageInput: 'Input',

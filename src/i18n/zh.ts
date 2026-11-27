@@ -326,6 +326,7 @@ export const zh = {
   edit: '修改',
   usageTitle: '本轮消耗额度',
   usageFree: '免费',
+  usageEstimateBadge: '估算',
   usageEstimatePeak: '按「高峰时段」价格估算',
   usageEstimateOffPeak: '按「空闲时段」价格估算',
   usageInput: '输入',

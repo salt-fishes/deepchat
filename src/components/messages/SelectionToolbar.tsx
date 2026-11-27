@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslate } from '../../i18n/index.js'
 import { useDismiss } from '../base/anchored.js'
 import { registerOverlayToken } from '../base/Modal.js'
-import { IconCopyOutline16, IconRefreshOutline16 } from '../base/icons.js'
+import { IconCopyOutline16 } from '../base/icons.js'
 import { IconShareOutline16 } from './MessageIcons.js'
 import styles from './MessageInteractions.module.css'
 
@@ -18,16 +18,12 @@ export const SelectionToolbar = ({
   onClose,
   onCopy,
   onShare,
-  onRegenerate,
-  busy,
 }: {
   selection: MessageSelection | null
   root: HTMLElement | null
   onClose: () => void
   onCopy: (text: string) => void
   onShare: (text: string) => void
-  onRegenerate: () => void
-  busy: boolean
 }) => {
   const t = useTranslate()
   const toolbarRef = useRef<HTMLDivElement>(null)
@@ -142,6 +138,7 @@ export const SelectionToolbar = ({
         onClick={() => onCopy(text)}
       >
         <IconCopyOutline16 />
+        <span>{t('copy')}</span>
       </button>
       <button
         type="button"
@@ -151,17 +148,7 @@ export const SelectionToolbar = ({
         onClick={() => onShare(text)}
       >
         <IconShareOutline16 />
-      </button>
-      <button
-        type="button"
-        className={styles.selectionButton}
-        aria-label={t('regenerate')}
-        title={t('regenerate')}
-        disabled={busy}
-        onClick={onRegenerate}
-      >
-        <IconRefreshOutline16 />
-        <span>{t('regenerate')}</span>
+        <span>{t('share')}</span>
       </button>
     </div>,
     document.body

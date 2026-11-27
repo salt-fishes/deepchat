@@ -5,6 +5,10 @@
 .card {
   display: flex;
   flex-direction: column;
+  cursor: default;
+}
+
+.resultCard {
   cursor: pointer;
 }
 
