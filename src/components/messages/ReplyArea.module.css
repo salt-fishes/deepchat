@@ -69,7 +69,7 @@
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
   user-select: none;
-  transition: color 0.2s;
+  transition: color var(--motion-popup) var(--motion-ease-enter);
 
   &::before {
     content: '';
@@ -290,7 +290,7 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  animation: fadeIn 0.3s ease-in;
+  animation: fadeIn var(--motion-panel) var(--motion-ease-enter);
 }
 
 @keyframes fadeIn {
@@ -346,7 +346,7 @@
   text-decoration-style: dotted;
   text-decoration-color: var(--dsw-alias-label-caption);
   text-underline-offset: 4px;
-  transition: color 0.2s;
+  transition: color var(--motion-popup) var(--motion-ease-enter);
 }
 
 .pageIcon {

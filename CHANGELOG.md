@@ -4,6 +4,25 @@ All notable changes to deepchat are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/).
 
+## [1.20.0] - 2026-11-27
+
+### Changed
+
+- Completed enter/exit motion for message menus, text selection, citations, hover cards, thinking-effort menus, tooltips and drag upload feedback.
+- Added velocity-aware mobile drawer settling, drag-to-dismiss bottom sheets, animated desktop sidebar collapse and sequential Settings page transitions.
+- Unified interaction motion tokens, coalesced anchored-popup scroll measurements and strengthened reduced-motion handling.
+- Aligned usage and share sheets with the supplied references: removed the close button and focus ring, restored yuan price formatting, and added the two-action share footer.
+- Refined share cards with the reference quote placement and hyphenated excerpt date while retaining the independent deepchat brand.
+- Added motion regression coverage for drawer velocity, sheet dismissal, exit presence and reduced-motion behavior.
+
+### Fixed
+
+- Rapid overlay reopen/cancel cycles can no longer unmount a newly opened surface or leave stale gestures active.
+- Modal and bottom-sheet input/focus locks now remain in place until their exit animation finishes.
+- Usage pricing values no longer wrap or clip in the narrow reference layout.
+
+[1.20.0]: https://github.com/salt-fishes/deepchat/releases/tag/v1.20
+
 ## [1.19.0] - 2026-11-27
 
 ### Changed

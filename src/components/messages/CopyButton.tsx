@@ -4,6 +4,7 @@ import { IconCheckOutline16, IconCopyOutline16 } from '../base/icons.js'
 import { IconButton } from '../base/IconButton.js'
 import { showToast } from '../base/toastState.js'
 import { copyText } from '../../utils/clipboard.js'
+import styles from './MessageFeedback.module.css'
 
 /** 菜单与浮动工具条共用同一种复制反馈。 */
 export const copyWithFeedback = async (text: string): Promise<boolean> => {
@@ -23,7 +24,11 @@ export const CopyButton = ({ text }: { text: string }) => {
 
   return (
     <IconButton
-      icon={copied ? <IconCheckOutline16 /> : <IconCopyOutline16 />}
+      icon={
+        <span key={copied ? 'copied' : 'copy'} className={styles.feedback}>
+          {copied ? <IconCheckOutline16 /> : <IconCopyOutline16 />}
+        </span>
+      }
       tooltip={t('copy')}
       tooltipPlacement="bottom"
       onClick={async () => {

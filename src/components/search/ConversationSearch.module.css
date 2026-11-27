@@ -16,7 +16,10 @@
 }
 
 @keyframes search-page-out {
-  to { opacity: 0; transform: translateY(8px); }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 @keyframes search-page-in {
@@ -128,11 +131,17 @@
   }
 }
 
+.clear[data-app-exiting] {
+  animation: search-control-out var(--motion-feedback) var(--motion-ease-exit) forwards;
+}
+
 .back,
 .clear {
   transition: transform var(--motion-feedback) var(--motion-ease-enter);
 
-  &:active { transform: scale(0.9); }
+  &:active {
+    transform: scale(0.9);
+  }
 }
 
 .results {
@@ -158,7 +167,8 @@
   text-align: left;
   font: inherit;
   cursor: pointer;
-  transition: background-color var(--motion-feedback) var(--motion-ease-enter),
+  transition:
+    background-color var(--motion-feedback) var(--motion-ease-enter),
     transform var(--motion-feedback) var(--motion-ease-enter);
 
   &:nth-child(-n + 10) {
@@ -172,11 +182,24 @@
 }
 
 @keyframes search-control-in {
-  from { opacity: 0; scale: 0.8; }
+  from {
+    opacity: 0;
+    scale: 0.8;
+  }
+}
+
+@keyframes search-control-out {
+  to {
+    opacity: 0;
+    scale: 0.8;
+  }
 }
 
 @keyframes search-result-in {
-  from { opacity: 0; translate: 0 5px; }
+  from {
+    opacity: 0;
+    translate: 0 5px;
+  }
 }
 
 .avatar {

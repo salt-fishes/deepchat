@@ -26,7 +26,7 @@
   font-weight: 600;
   text-align: center;
   color: var(--dsw-alias-label-primary);
-  animation: greeting-in 0.24s var(--ds-ease-in-out);
+  animation: greeting-in var(--motion-panel) var(--motion-ease-enter);
 }
 
 @keyframes greeting-in {

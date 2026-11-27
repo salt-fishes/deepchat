@@ -1,10 +1,16 @@
 import clsx from 'clsx'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useAnchoredPosition, useDismiss } from '../base/anchored.js'
 import { IconCheckOutline16, IconChevronDownOutline14 } from '../base/icons.js'
 import { registerOverlayToken } from '../base/Modal.js'
-import { setChatPreferences, useChatPreferences, useSettings, type ThinkingEffort } from '../../services/settings.js'
+import {
+  setChatPreferences,
+  useChatPreferences,
+  useSettings,
+  type ThinkingEffort,
+} from '../../services/settings.js'
 import { useTranslate } from '../../i18n/index.js'
 import selectStyles from '../base/Select.module.css'
 import styles from './ThinkingEffort.module.css'
@@ -27,10 +33,12 @@ export const ThinkingEffortTrigger = ({ sessionId }: { sessionId: string | null 
   const effort = useSettings((state) => override ?? state.thinkingEffort)
   const [open, setOpen] = useState(false)
   const menuId = useId()
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  const menuVisible = useExitPresence(open ? true : null, menuRef)
   const { anchorRef, floatingRef, position } = useAnchoredPosition<
     HTMLButtonElement,
     HTMLDivElement
-  >(open, { side: 'top', align: 'start', offset: 8, fitVisualViewport: true })
+  >(!!menuVisible, { side: 'top', align: 'start', offset: 8, fitVisualViewport: true })
   // Esc 只关菜单，不让外层浮层一起关闭
   useDismiss(open, [anchorRef, floatingRef], () => setOpen(false), { captureEscape: true })
   useEffect(() => (open ? registerOverlayToken(() => setOpen(false)) : undefined), [open])
@@ -51,12 +59,16 @@ export const ThinkingEffortTrigger = ({ sessionId }: { sessionId: string | null 
           <IconChevronDownOutline14 />
         </span>
       </button>
-      {open
+      {menuVisible
         ? createPortal(
             <div
               id={menuId}
-              ref={floatingRef}
+              ref={(node) => {
+                menuRef.current = floatingRef.current = node
+              }}
               className={clsx(selectStyles.menu, styles.menu)}
+              data-app-exiting={!open || undefined}
+              aria-hidden={!open || undefined}
               style={position ?? { visibility: 'hidden' }}
               role="menu"
               aria-label={t('thinkingEffort')}

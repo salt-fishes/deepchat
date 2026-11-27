@@ -580,7 +580,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             ) : null}
           </div>
         </div>
-        {dragging ? <DragMask /> : null}
+        <DragMask open={dragging} />
       </div>
       <AttachSheet
         open={sheetOpen}

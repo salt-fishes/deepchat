@@ -35,13 +35,13 @@
     0 0 1px 0 rgba(0, 0, 0, 0.2),
     0 0 4px 0 rgba(0, 0, 0, 0.02),
     0 12px 32px 0 rgba(0, 0, 0, 0.08);
+  outline: none;
   transform: none;
   transition: transform var(--motion-panel) var(--motion-ease-enter);
 }
 
 .closing {
   opacity: 0;
-  pointer-events: none;
   transition-timing-function: var(--motion-ease-exit);
 
   .content {

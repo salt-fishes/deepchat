@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useTranslate } from '../../i18n/index.js'
 import { useDismiss } from '../base/anchored.js'
 import { registerOverlayToken } from '../base/Modal.js'
@@ -35,6 +36,7 @@ export const MessageActionMenu = ({
 }) => {
   const t = useTranslate()
   const menuRef = useRef<HTMLDivElement>(null)
+  const visibleDetail = useExitPresence(detail, menuRef)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
@@ -49,23 +51,23 @@ export const MessageActionMenu = ({
   }, [detail, close])
 
   useLayoutEffect(() => {
-    if (!detail || !menuRef.current) {
+    if (!visibleDetail || !menuRef.current) {
       return
     }
     const { width, height } = menuRef.current.getBoundingClientRect()
     const gap = 12
     const padding = 8
-    const placeRight = detail.x + gap + width <= window.innerWidth - padding
-    const left = placeRight ? detail.x + gap : detail.x - width - gap
-    const below = detail.y + gap + height <= window.innerHeight - padding
-    const top = below ? detail.y + gap : detail.y - height - gap
+    const placeRight = visibleDetail.x + gap + width <= window.innerWidth - padding
+    const left = placeRight ? visibleDetail.x + gap : visibleDetail.x - width - gap
+    const below = visibleDetail.y + gap + height <= window.innerHeight - padding
+    const top = below ? visibleDetail.y + gap : visibleDetail.y - height - gap
     setPosition({
       left: Math.max(padding, Math.min(left, window.innerWidth - width - padding)),
       top: Math.max(padding, Math.min(top, window.innerHeight - height - padding)),
     })
-  }, [detail])
+  }, [visibleDetail])
 
-  if (!detail) {
+  if (!visibleDetail) {
     return null
   }
   const options: ActionOption[] = [
@@ -89,6 +91,8 @@ export const MessageActionMenu = ({
     <div
       ref={menuRef}
       className={styles.actionMenu}
+      data-app-exiting={!detail || undefined}
+      aria-hidden={!detail || undefined}
       style={position ?? { left: -1000, top: -1000 }}
       role="menu"
       onPointerDown={(event) => event.stopPropagation()}

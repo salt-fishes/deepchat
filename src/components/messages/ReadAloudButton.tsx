@@ -8,6 +8,7 @@ import { IconPlayMediaOutline16 } from '../base/icons.js'
 import { IconButton } from '../base/IconButton.js'
 import { showToast } from '../base/toastState.js'
 import { ReadingBars } from './ReadingBars.js'
+import styles from './MessageFeedback.module.css'
 
 /** 朗读按钮：未朗读时点击开始，加载中或朗读中点击停止；正文原样提交，由服务端过滤 markdown */
 export const ReadAloudButton = ({ messageId, text }: { messageId: string; text: string }) => {
@@ -15,7 +16,11 @@ export const ReadAloudButton = ({ messageId, text }: { messageId: string; text: 
   const status = useReadAloud((state) => (state.messageId === messageId ? state.status : 'idle'))
   return (
     <IconButton
-      icon={status === 'idle' ? <IconPlayMediaOutline16 /> : <ReadingBars mode={status} />}
+      icon={
+        <span key={status === 'idle' ? 'idle' : 'active'} className={styles.feedback}>
+          {status === 'idle' ? <IconPlayMediaOutline16 /> : <ReadingBars mode={status} />}
+        </span>
+      }
       tooltip={status === 'idle' ? t('ttsPlay') : t('ttsStop')}
       tooltipPlacement="bottom"
       onClick={() =>

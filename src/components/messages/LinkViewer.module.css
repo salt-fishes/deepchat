@@ -76,6 +76,7 @@
   color: var(--dsw-alias-label-secondary);
   font-size: 13px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  animation: var(--motion-content-enter) var(--motion-popup) var(--motion-ease-enter);
 }
 
 .loadingBar {
@@ -100,6 +101,7 @@
   color: var(--dsw-alias-label-secondary);
   font-size: 14px;
   text-align: center;
+  animation: var(--motion-content-enter) var(--motion-panel) var(--motion-ease-enter);
 }
 
 .errorActions {

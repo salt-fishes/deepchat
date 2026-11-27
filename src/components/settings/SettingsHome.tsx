@@ -85,13 +85,19 @@ const SettingsRowIcon = ({ page }: { page: Exclude<SettingsSection, 'general'> }
 export const SettingsRow = ({
   page,
   value,
+  onNavigate,
 }: {
   page: Exclude<SettingsSection, 'general'>
   value?: string
+  onNavigate?: (page: Exclude<SettingsSection, 'general'>) => void
 }) => {
   const t = useTranslate()
   return (
-    <button type="button" className={styles.settingsRow} onClick={() => navigateSettings(page)}>
+    <button
+      type="button"
+      className={styles.settingsRow}
+      onClick={() => (onNavigate ?? navigateSettings)(page)}
+    >
       <span className={styles.settingsIcon} aria-hidden="true">
         <SettingsRowIcon page={page} />
       </span>
@@ -154,7 +160,11 @@ const AppearanceChoiceRow = () => {
   )
 }
 
-export const SettingsHome = () => {
+export const SettingsHome = ({
+  onNavigate,
+}: {
+  onNavigate?: (page: Exclude<SettingsSection, 'general'>) => void
+}) => {
   const t = useTranslate()
   const [version, setVersion] = useState('')
   useEffect(() => {
@@ -173,24 +183,24 @@ export const SettingsHome = () => {
   return (
     <>
       <SettingsGroup label={t('settingsAccount')}>
-        <SettingsRow page="api" />
-        <SettingsRow page="data" />
+        <SettingsRow onNavigate={onNavigate} page="api" />
+        <SettingsRow onNavigate={onNavigate} page="data" />
       </SettingsGroup>
       <SettingsGroup label={t('settingsApplication')}>
         <LanguageChoiceRow />
         <AppearanceChoiceRow />
-        <SettingsRow page="font" />
-        <SettingsRow page="personalization" />
+        <SettingsRow onNavigate={onNavigate} page="font" />
+        <SettingsRow onNavigate={onNavigate} page="personalization" />
       </SettingsGroup>
       <SettingsGroup label={t('settingsVoice')}>
-        <SettingsRow page="voice" />
+        <SettingsRow onNavigate={onNavigate} page="voice" />
       </SettingsGroup>
       <SettingsGroup label={t('settingsAbout')}>
-        <SettingsRow page="update" value={version} />
-        <SettingsRow page="terms" />
+        <SettingsRow onNavigate={onNavigate} page="update" value={version} />
+        <SettingsRow onNavigate={onNavigate} page="terms" />
       </SettingsGroup>
       <SettingsGroup>
-        <SettingsRow page="help" />
+        <SettingsRow onNavigate={onNavigate} page="help" />
       </SettingsGroup>
     </>
   )

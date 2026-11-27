@@ -14,15 +14,17 @@
     0 0 1px rgba(0, 0, 0, 0.2),
     0 0 4px rgba(0, 0, 0, 0.02),
     0 12px 32px rgba(0, 0, 0, 0.08);
-  animation: menu-in 0.12s ease-out;
+  animation: menu-in var(--motion-popup) var(--motion-ease-enter);
 }
 
 @keyframes menu-in {
   from {
     opacity: 0;
+    transform: translateY(-4px) scale(0.98);
   }
   to {
     opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 

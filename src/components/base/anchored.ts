@@ -105,6 +105,7 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
   const internalAnchorRef = useRef<T | null>(null) as MutableRefObject<T | null>
   const anchorRef = externalAnchorRef ?? internalAnchorRef
   const floatingRef = useRef<F | null>(null) as MutableRefObject<F | null>
+  const frameRef = useRef(0)
   const [position, setPosition] = useState<AnchoredPosition | null>(null)
 
   /** 位置没有实际变化时不更新状态，避免重新测量引起多余渲染 */
@@ -208,6 +209,17 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
     side,
   ])
 
+  /** Continuous updates are coalesced to one measurement per paint frame. */
+  const scheduleUpdate = useCallback(() => {
+    if (frameRef.current) {
+      return
+    }
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = 0
+      update()
+    })
+  }, [update])
+
   // 打开时与内容变化时同步测量，必须在绘制前完成
   useLayoutEffect(() => {
     if (open) {
@@ -228,24 +240,28 @@ export const useAnchoredPosition = <T extends HTMLElement, F extends HTMLElement
       return
     }
     const anchor = getAnchor()
-    const observer = new ResizeObserver(() => update())
+    const observer = new ResizeObserver(scheduleUpdate)
     observer.observe(floating)
     if (anchor) {
       observer.observe(anchor)
     }
-    window.addEventListener('scroll', update, { capture: true, passive: true })
-    window.addEventListener('resize', update, { passive: true })
+    window.addEventListener('scroll', scheduleUpdate, { capture: true, passive: true })
+    window.addEventListener('resize', scheduleUpdate, { passive: true })
     const viewport = fitVisualViewport ? window.visualViewport : null
-    viewport?.addEventListener('resize', update)
-    viewport?.addEventListener('scroll', update)
+    viewport?.addEventListener('resize', scheduleUpdate, { passive: true })
+    viewport?.addEventListener('scroll', scheduleUpdate, { passive: true })
     return () => {
       observer.disconnect()
-      window.removeEventListener('scroll', update, { capture: true })
-      window.removeEventListener('resize', update)
-      viewport?.removeEventListener('resize', update)
-      viewport?.removeEventListener('scroll', update)
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current)
+        frameRef.current = 0
+      }
+      window.removeEventListener('scroll', scheduleUpdate, { capture: true })
+      window.removeEventListener('resize', scheduleUpdate)
+      viewport?.removeEventListener('resize', scheduleUpdate)
+      viewport?.removeEventListener('scroll', scheduleUpdate)
     }
-  }, [fitVisualViewport, floatingRef, getAnchor, open, update])
+  }, [fitVisualViewport, floatingRef, getAnchor, open, scheduleUpdate])
 
   useEffect(() => {
     if (!open) {

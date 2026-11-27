@@ -19,7 +19,7 @@
 
 /* 新消息入场 / 版本切换淡入（全局 prefers-reduced-motion 时被禁用） */
 .entering {
-  animation: message-entering 240ms var(--ds-ease-in-out);
+  animation: message-entering var(--motion-panel) var(--motion-ease-enter);
 }
 
 @keyframes message-entering {
@@ -80,6 +80,9 @@
 .bubbleToggle[aria-expanded='true'] {
   position: static;
   margin: 5px 0 0 auto;
+}
+.bubbleToggle svg {
+  transition: transform var(--motion-popup) var(--motion-ease-enter);
 }
 .bubbleToggle[aria-expanded='true'] svg {
   transform: rotate(180deg);

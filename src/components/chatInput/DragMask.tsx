@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useTranslate } from '../../i18n/index.js'
 import { MAX_COUNT, MAX_SIZE_MB } from '../../services/attachments.js'
 import styles from './DragMask.module.css'
@@ -57,12 +58,23 @@ export const useFileDrop = (onDrop: (files: File[]) => void) => {
 }
 
 /** 拖拽遮罩，挂到 body 上盖住整个页面 */
-export const DragMask = () => createPortal(<DragMaskContent />, document.body)
+export const DragMask = ({ open }: { open: boolean }) =>
+  createPortal(<DragMaskContent open={open} />, document.body)
 
-const DragMaskContent = () => {
+const DragMaskContent = ({ open }: { open: boolean }) => {
   const t = useTranslate()
+  const maskRef = useRef<HTMLDivElement>(null)
+  const visible = useExitPresence(open, maskRef)
+  if (!visible) {
+    return null
+  }
   return (
-    <div className={styles.mask}>
+    <div
+      ref={maskRef}
+      className={styles.mask}
+      data-app-exiting={!open || undefined}
+      aria-hidden={!open || undefined}
+    >
       <div className={styles.wrap}>
         <UploadIcon />
         <div className={styles.title}>{t('dragFileToUpload')}</div>

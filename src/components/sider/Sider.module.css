@@ -1,3 +1,22 @@
+.siderShell {
+  flex: 0 0 auto;
+  width: 261px;
+  height: 100%;
+  overflow: hidden;
+  visibility: visible;
+  transition:
+    width var(--motion-panel) var(--motion-ease-enter),
+    visibility 0s;
+}
+
+.siderShellCollapsed {
+  width: 0;
+  visibility: hidden;
+  transition:
+    width var(--motion-panel) var(--motion-ease-exit),
+    visibility 0s linear var(--motion-panel);
+}
+
 .sider {
   display: flex;
   flex-direction: column;
@@ -57,7 +76,7 @@
     0 -2px 2px rgba(72, 104, 178, 0.04),
     0 2px 2px rgba(106, 111, 117, 0.09),
     0 1px 2px rgba(72, 104, 178, 0.08);
-  transition: box-shadow 0.3s ease;
+  transition: box-shadow var(--ds-transition-duration-slow) var(--ds-ease-in-out);
 
   &:hover {
     box-shadow:
@@ -87,22 +106,59 @@
 }
 
 .listWrap[data-fade='true']::after {
-  position: absolute; inset: auto 0 0; height: 40px; content: '';
-  background: linear-gradient(transparent, var(--dsw-alias-bg-base)); pointer-events: none;
+  position: absolute;
+  inset: auto 0 0;
+  height: 40px;
+  content: '';
+  background: linear-gradient(transparent, var(--dsw-alias-bg-base));
+  pointer-events: none;
 }
-.listWrap[data-fade='true'] .list { box-sizing: border-box; padding-bottom: 38px; }
+.listWrap[data-fade='true'] .list {
+  box-sizing: border-box;
+  padding-bottom: 38px;
+}
 
-.selectionHeader, .selectionActions { display: flex; align-items: center; flex-shrink: 0; }
-.selectionHeader { min-height: 54px; justify-content: space-between; padding: 0 14px; font-size: 17px; }
-.selectionHeader > button { border-radius: 50%; background: var(--dsw-alias-interactive-bg-hover); }
-.selectionActions { border-top: 1px solid var(--dsw-alias-border-l2-darkmode-thin); min-height: 60px; }
-.selectionActions > button {
-  display: flex; flex: 1; align-items: center; justify-content: center; gap: 10px;
-  min-height: 42px; border: 0; background: none; color: var(--dsw-alias-label-primary);
-  font: inherit; cursor: pointer;
+.selectionHeader,
+.selectionActions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  animation: var(--motion-content-enter) var(--motion-popup) var(--motion-ease-enter);
 }
-.selectionActions > button + button { border-inline-start: 1px solid var(--dsw-alias-border-l2-darkmode-thin); }
-.selectionActions > button:disabled { opacity: 0.45; cursor: default; }
+.selectionHeader {
+  min-height: 54px;
+  justify-content: space-between;
+  padding: 0 14px;
+  font-size: 17px;
+}
+.selectionHeader > button {
+  border-radius: 50%;
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.selectionActions {
+  border-top: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  min-height: 60px;
+}
+.selectionActions > button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 42px;
+  border: 0;
+  background: none;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.selectionActions > button + button {
+  border-inline-start: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+}
+.selectionActions > button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 
 .list {
   height: 100%;
@@ -194,6 +250,21 @@
   align-items: center;
   gap: 16px;
   margin: 12px 0 0 16px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--motion-feedback) var(--motion-ease-enter),
+    visibility 0s linear var(--motion-feedback);
+}
+
+.collapsed[data-open] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity var(--motion-popup) var(--motion-ease-enter),
+    visibility 0s;
 }
 
 .collapsedGroup {
@@ -207,6 +278,16 @@
   border: 1px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-layer-3);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  opacity: 0;
+  transform: scale(0.96);
+  transition:
+    opacity var(--motion-popup) var(--motion-ease-enter),
+    transform var(--motion-popup) var(--motion-ease-enter);
+}
+
+.collapsed[data-open] .collapsedGroup {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .searchBox {
@@ -288,7 +369,8 @@
   visibility: hidden;
   pointer-events: none;
   transition:
-    transform var(--motion-page) var(--motion-ease-enter),
+    transform var(--drawer-duration, var(--motion-page))
+      var(--drawer-easing, var(--motion-ease-enter)),
     visibility var(--motion-page);
 }
 

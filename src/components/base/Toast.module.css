@@ -21,7 +21,7 @@
   box-shadow:
     0 0 4px 2px rgba(0, 0, 0, 0.04),
     0 4px 16px 0 rgba(0, 0, 0, 0.1);
-  animation: enter 0.2s var(--ds-ease-in-out);
+  animation: enter var(--motion-popup) var(--motion-ease-enter);
   pointer-events: none;
 }
 
@@ -62,7 +62,7 @@
 
 /* 退场由 Toast.tsx 在卸载前保留 200ms 播放 */
 .leaving {
-  animation: leave 0.2s var(--ds-ease-in-out) forwards;
+  animation: leave var(--motion-feedback) var(--motion-ease-exit) forwards;
 }
 
 @keyframes leave {

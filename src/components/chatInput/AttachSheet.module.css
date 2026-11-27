@@ -60,7 +60,8 @@
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.25);
   color: white;
-  transition: background-color var(--motion-popup) var(--motion-ease-enter),
+  transition:
+    background-color var(--motion-popup) var(--motion-ease-enter),
     transform var(--motion-feedback) var(--motion-ease-enter);
 }
 
@@ -82,7 +83,11 @@
   gap: 6px;
   border-radius: 15px;
   border: 1px solid var(--dsw-alias-border-l2);
-  background: color-mix(in srgb, var(--dsw-alias-button-ghost-active-fill) 42%, var(--dsw-alias-interactive-bg-hover));
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-button-ghost-active-fill) 42%,
+    var(--dsw-alias-interactive-bg-hover)
+  );
   font-size: 14px;
 
   svg {
@@ -142,8 +147,6 @@
   object-fit: cover;
 }
 
-
-
 /* 三张大卡片 */
 .cards {
   display: flex;
@@ -166,7 +169,8 @@
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color var(--motion-popup) var(--motion-ease-enter),
+  transition:
+    background-color var(--motion-popup) var(--motion-ease-enter),
     transform var(--motion-feedback) var(--motion-ease-enter);
 }
 
@@ -193,7 +197,7 @@
   background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base));
   border: 1px solid var(--dsw-alias-border-l2);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-  animation: popover-in 0.15s var(--ds-ease-in-out);
+  animation: popover-in var(--motion-popup) var(--motion-ease-enter);
 }
 
 @keyframes popover-in {

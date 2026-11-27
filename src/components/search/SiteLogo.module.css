@@ -50,7 +50,7 @@
   width: 16px;
   height: 16px;
   margin-left: -4px;
-  transition: box-shadow 0.2s;
+  transition: box-shadow var(--ds-transition-duration) var(--ds-ease-in-out);
   box-shadow:
     0 0 0 1px var(--search-row-site-logo-color, var(--dsw-alias-bg-base)),
     0 0 0 1px var(--dsw-alias-bg-base);

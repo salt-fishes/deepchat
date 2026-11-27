@@ -9,13 +9,16 @@ import styles from './MessageInteractions.module.css'
 
 const formatCost = (value: number, locale: string) => {
   if (value > 0 && value < 0.000001) {
-    return '<¥0.000001'
+    return locale.startsWith('zh') ? '<0.000001 元' : '<CNY 0.000001'
   }
-  return `¥${value.toLocaleString(locale, { maximumFractionDigits: 6 })}`
+  const formatted = value.toLocaleString(locale, { maximumFractionDigits: 6 })
+  return locale.startsWith('zh') ? `${formatted} 元` : `CNY ${formatted}`
 }
 
-const formatUnitPrice = (value: number, locale: string) =>
-  `¥${value.toLocaleString(locale, { maximumFractionDigits: 3 })}/M`
+const formatUnitPrice = (value: number, locale: string) => {
+  const formatted = value.toLocaleString(locale, { maximumFractionDigits: 3 })
+  return locale.startsWith('zh') ? `${formatted} 元 / 百万 tokens` : `CNY ${formatted} / 1M tokens`
+}
 
 export const UsagePanel = ({
   open,
@@ -64,7 +67,9 @@ export const UsagePanel = ({
   const amount = estimate
     ? estimate.totalAmount > 0
       ? formatCost(estimate.totalAmount, locale)
-      : '¥0'
+      : locale.startsWith('zh')
+        ? '0 元'
+        : 'CNY 0'
     : '—'
 
   return (
@@ -75,7 +80,7 @@ export const UsagePanel = ({
           <span className={styles.sheetHeaderIcon} aria-hidden="true">
             <IconUsageOutline16 />
           </span>
-          <span>{t('usageTitle')}</span>
+          <span className={styles.usageTitleText}>{t('usageTitle')}</span>
           {estimate ? (
             <span className={styles.usageBadge}>
               {t(estimate.totalAmount > 0 ? 'usageEstimateBadge' : 'usageFree')}

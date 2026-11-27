@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { useAnchoredPosition, useDelayedOpen, useDismiss } from '../base/anchored.js'
 import type { Source } from '../../services/chat/view.js'
@@ -14,15 +15,20 @@ export const CitationLink = ({ source }: { source: Source }) => {
   const isMobile = useIsMobile()
   const [pinned, setPinned] = useState(false)
   const anchorRef = useRef<HTMLSpanElement | null>(null)
+  const previewRef = useRef<HTMLDivElement | null>(null)
   const { open: hoverOpen, setOpen: setHoverOpen, schedule, cancel } = useDelayedOpen()
   const open = pinned || (!isMobile && hoverOpen)
-  const { floatingRef, position } = useAnchoredPosition<HTMLSpanElement, HTMLDivElement>(open, {
-    anchorRef,
-    align: 'center',
-    offset: 6,
-    fitVisualViewport: true,
-    measureKey: source.url,
-  })
+  const visibleSource = useExitPresence(open ? source : null, previewRef)
+  const { floatingRef, position } = useAnchoredPosition<HTMLSpanElement, HTMLDivElement>(
+    !!visibleSource,
+    {
+      anchorRef,
+      align: 'center',
+      offset: 6,
+      fitVisualViewport: true,
+      measureKey: source.url,
+    }
+  )
   const close = () => {
     setPinned(false)
     setHoverOpen(false)
@@ -72,11 +78,15 @@ export const CitationLink = ({ source }: { source: Source }) => {
       >
         {source.index}
       </span>
-      {open
+      {visibleSource
         ? createPortal(
             <div
-              ref={floatingRef}
+              ref={(node) => {
+                previewRef.current = floatingRef.current = node
+              }}
               className={styles.citationPreview}
+              data-app-exiting={!open || undefined}
+              aria-hidden={!open || undefined}
               style={position ?? { top: 0, left: 0, visibility: 'hidden' }}
               role="dialog"
               aria-label={source.title}
@@ -91,7 +101,7 @@ export const CitationLink = ({ source }: { source: Source }) => {
                 }
               }}
             >
-              <SourceCard source={source} variant="preview" onOpen={close} />
+              <SourceCard source={visibleSource} variant="preview" onOpen={close} />
             </div>,
             document.body
           )

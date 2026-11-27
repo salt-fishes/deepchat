@@ -17,7 +17,7 @@
 
 /* 新消息入场 / 版本切换淡入（全局 prefers-reduced-motion 时被禁用） */
 .entering {
-  animation: message-entering 240ms var(--ds-ease-in-out);
+  animation: message-entering var(--motion-panel) var(--motion-ease-enter);
 }
 
 @keyframes message-entering {
@@ -110,7 +110,7 @@
 
 /* 流式刚结束时操作栏一次性淡入（finishedFlash 控制） */
 .bottomIn {
-  animation: bottom-in 0.24s var(--ds-ease-in-out);
+  animation: bottom-in var(--motion-panel) var(--motion-ease-enter);
 }
 
 @keyframes bottom-in {
@@ -149,7 +149,7 @@
   font: var(--dsw-font-markdown-small);
   cursor: pointer;
   user-select: none;
-  transition: background-color 0.3s;
+  transition: background-color var(--ds-transition-duration-slow) var(--ds-ease-in-out);
 
   > span:first-child {
     margin-left: 0;

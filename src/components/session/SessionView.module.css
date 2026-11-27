@@ -17,6 +17,7 @@
 
 .title {
   animation: var(--motion-content-enter) var(--motion-popup) var(--motion-ease-enter);
+  transition: margin-left var(--motion-panel) var(--motion-ease-enter);
   max-width: 480px;
   padding: 8px 12px;
   overflow: hidden;
@@ -49,7 +50,6 @@
     var(--dsw-alias-bg-base) 100%
   );
 }
-
 
 @media not all and (min-width: 768px) {
   .inputContainer {

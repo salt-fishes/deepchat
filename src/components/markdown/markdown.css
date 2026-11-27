@@ -366,7 +366,7 @@
   padding: 16px;
   overflow: auto;
   text-align: center;
-  animation: mermaid-in 0.18s var(--ds-ease-in-out);
+  animation: mermaid-in var(--motion-popup) var(--motion-ease-enter);
 
   > svg {
     display: block;
@@ -383,7 +383,7 @@
 }
 
 .ds-markdown-math {
-  animation: math-in 0.18s var(--ds-ease-in-out);
+  animation: math-in var(--motion-popup) var(--motion-ease-enter);
 }
 
 @keyframes math-in {
@@ -402,7 +402,7 @@
   font-size: 14px;
 }
 .ds-streaming-text {
-  animation: ds-streaming-reveal 210ms ease-out both;
+  animation: ds-streaming-reveal var(--motion-panel) ease-out both;
 }
 
 @keyframes ds-streaming-reveal {

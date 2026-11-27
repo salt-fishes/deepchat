@@ -1,5 +1,12 @@
-import { useEffect, type HTMLAttributes, type MutableRefObject, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  type HTMLAttributes,
+  type MutableRefObject,
+  type ReactNode,
+} from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useAnchoredPosition, useDelayedOpen } from '../base/anchored.js'
 import styles from './HoverCard.module.css'
 
@@ -21,8 +28,10 @@ export const HoverCard = ({
   children: ReactNode
 }) => {
   const { open, schedule, cancel } = useDelayedOpen()
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  const present = useExitPresence(open ? true : null, cardRef)
   const { anchorRef, floatingRef, position } = useAnchoredPosition<HTMLSpanElement, HTMLDivElement>(
-    open,
+    !!present,
     { align: 'center', offset: GAP }
   )
 
@@ -37,11 +46,15 @@ export const HoverCard = ({
           onMouseLeave: () => schedule(false, LEAVE_DELAY),
         },
       })}
-      {open
+      {present
         ? createPortal(
             <div
-              ref={floatingRef}
+              ref={(node) => {
+                cardRef.current = floatingRef.current = node
+              }}
               className={styles.card}
+              data-app-exiting={!open || undefined}
+              aria-hidden={!open || undefined}
               style={position ?? { top: 0, left: 0, visibility: 'hidden' }}
               onMouseEnter={cancel}
               onMouseLeave={() => schedule(false, LEAVE_DELAY)}

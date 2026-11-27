@@ -1,6 +1,9 @@
 import { Capacitor } from '@capacitor/core'
 import { App } from '@capacitor/app'
-import { dismissImageWorkbench, useImageWorkbench } from '../components/media/imageWorkbenchState.js'
+import {
+  dismissImageWorkbench,
+  useImageWorkbench,
+} from '../components/media/imageWorkbenchState.js'
 import { closeTopmostModal } from '../components/base/Modal.js'
 import { closeSearchPanel, useSearchPanel } from '../components/search/searchPanelState.js'
 import {
@@ -33,7 +36,8 @@ export const registerBackButton = () => {
       closeSearchPanel()
       return
     }
-    if (useMobileSider.getState().open) {
+    const sider = useMobileSider.getState()
+    if (sider.open || sider.dragging || sider.settling) {
       closeMobileSider()
       return
     }

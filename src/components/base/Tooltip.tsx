@@ -1,5 +1,6 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitPresence } from '../../app/useExitPresence.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { useAnchoredPosition, useDelayedOpen } from './anchored.js'
 import styles from './Tooltip.module.css'
@@ -23,8 +24,11 @@ export const Tooltip = ({
 }) => {
   const isMobile = useIsMobile()
   const { open, setOpen, schedule, cancel } = useDelayedOpen()
+  const tooltipRef = useRef<HTMLDivElement | null>(null)
+  const desired = open && !isMobile && Boolean(content)
+  const present = useExitPresence(desired ? content : null, tooltipRef)
   const { anchorRef, floatingRef, position } = useAnchoredPosition<HTMLSpanElement, HTMLDivElement>(
-    open,
+    !!present,
     { side: placement, align: 'center', measureFirstChild: true, measureKey: content }
   )
 
@@ -40,8 +44,6 @@ export const Tooltip = ({
     return () => window.removeEventListener('scroll', onScroll, true)
   }, [open, setOpen])
 
-  const visible = open && !isMobile && Boolean(content)
-
   return (
     <>
       <span
@@ -52,15 +54,19 @@ export const Tooltip = ({
       >
         {children}
       </span>
-      {visible
+      {present
         ? createPortal(
             <div
-              ref={floatingRef}
+              ref={(node) => {
+                tooltipRef.current = floatingRef.current = node
+              }}
               role="tooltip"
               className={styles.tooltip}
+              data-app-exiting={!desired || undefined}
+              aria-hidden={!desired || undefined}
               style={position ?? { top: 0, left: 0, visibility: 'hidden' }}
             >
-              {content}
+              {present}
             </div>,
             document.body
           )

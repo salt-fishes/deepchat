@@ -133,13 +133,19 @@
 }
 
 @keyframes attachment-status-in {
-  from { opacity: 0; }
+  from {
+    opacity: 0;
+  }
 }
 
-.attachmentReady { animation: attachment-ready var(--motion-popup) var(--motion-ease-enter); }
+.attachmentReady {
+  animation: attachment-ready var(--motion-popup) var(--motion-ease-enter);
+}
 
 @keyframes attachment-ready {
-  from { opacity: 0.65; }
+  from {
+    opacity: 0.65;
+  }
 }
 
 /* 不可重试：蒙层更浅，原因贴底 */
@@ -185,7 +191,6 @@
   transition: opacity var(--ds-transition-duration) var(--ds-ease-in-out);
 }
 
-
 @media (hover: none) {
   .remove {
     opacity: 1;
@@ -230,7 +235,9 @@
   background-color: transparent;
   color: var(--dsw-alias-label-primary);
   caret-color: var(--dsw-alias-brand-text);
-  transition: opacity var(--motion-popup) var(--motion-ease-enter), visibility var(--motion-popup);
+  transition:
+    opacity var(--motion-popup) var(--motion-ease-enter),
+    visibility var(--motion-popup);
 
   &::placeholder {
     color: var(--dsw-alias-label-caption);
@@ -297,7 +304,6 @@
   min-width: 0;
 }
 
-
 .toggle {
   display: inline-flex;
   /* 允许收缩：窄屏时文字省略而不是溢出容器压到右侧按钮上 */
@@ -320,7 +326,7 @@
   cursor: pointer;
   user-select: none;
   transition-property: border, background, color;
-  transition-duration: 0.2s;
+  transition-duration: var(--ds-transition-duration);
 
   svg {
     flex-shrink: 0;
@@ -378,8 +384,13 @@
 }
 
 @media (max-width: 380px) {
-  .functionRow { gap: 6px; padding-inline: 8px; }
-  .toggles { gap: 6px; }
+  .functionRow {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+  .toggles {
+    gap: 6px;
+  }
 }
 
 .right {
@@ -476,7 +487,8 @@
       font: inherit;
       font-size: 13px;
       cursor: pointer;
-      transition: background-color var(--motion-feedback) var(--motion-ease-enter),
+      transition:
+        background-color var(--motion-feedback) var(--motion-ease-enter),
         transform var(--motion-feedback) var(--motion-ease-enter);
 
       &:active {

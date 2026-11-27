@@ -29,7 +29,7 @@ import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
 import { ImageWorkbench } from '../components/media/ImageWorkbench.js'
 import { LinkViewer } from '../components/messages/LinkViewer.js'
-import { MobileSider, Sider } from '../components/sider/Sider.js'
+import { DesktopSider, MobileSider } from '../components/sider/Sider.js'
 import { closeMobileSider, useMobileSider } from '../components/sider/mobileSiderState.js'
 import { registerBackButton } from './backButton.js'
 import styles from './App.module.css'
@@ -66,6 +66,7 @@ export const App = () => {
   const sliverHitRef = useRef<HTMLDivElement>(null)
   const siderOpen = useMobileSider((state) => state.open)
   const siderDragging = useMobileSider((state) => state.dragging)
+  const siderSettling = useMobileSider((state) => state.settling)
   useDrawerGesture({
     isMobile,
     drawerRef,
@@ -132,13 +133,17 @@ export const App = () => {
   return (
     <>
       <div ref={frameRef} className={styles.frame}>
-        {isMobile ? <MobileSider drawerRef={drawerRef} /> : siderCollapsed ? null : <Sider />}
+        {isMobile ? (
+          <MobileSider drawerRef={drawerRef} />
+        ) : (
+          <DesktopSider collapsed={siderCollapsed} />
+        )}
         <main
           ref={mainRef}
           className={clsx(
             styles.main,
             isMobile &&
-              (siderOpen || siderDragging) &&
+              (siderOpen || siderDragging || siderSettling) &&
               clsx(styles.mainPushed, siderDragging && styles.mainNoTransition)
           )}
         >
@@ -156,7 +161,7 @@ export const App = () => {
             </div>
           ) : null}
           <div className={styles.content}>
-            {siderCollapsed ? <CollapsedSider /> : null}
+            {isMobile ? null : <CollapsedSider open={siderCollapsed} />}
             {!ready || (activeId !== null && !session) ? (
               <div className={styles.loadingView}>
                 {isMobile ? <MobileHeader /> : null}
@@ -199,8 +204,11 @@ export const App = () => {
       {isMobile ? (
         <div
           ref={sliverHitRef}
-          className={clsx(styles.sliverHit, siderOpen && !siderDragging && styles.sliverActive)}
-          aria-hidden={!siderOpen}
+          className={clsx(
+            styles.sliverHit,
+            (siderOpen || siderSettling) && !siderDragging && styles.sliverActive
+          )}
+          aria-hidden={!siderOpen && !siderSettling}
           onClick={closeMobileSider}
         />
       ) : null}

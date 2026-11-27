@@ -1,0 +1,7 @@
+.feedback {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  animation: var(--motion-pop-enter) var(--motion-feedback) var(--motion-ease-enter);
+}

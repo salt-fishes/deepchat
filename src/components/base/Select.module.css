@@ -56,7 +56,12 @@
   display: flex;
   color: var(--dsw-alias-label-secondary);
   transform: translateY(-50%);
+  transition: transform var(--motion-popup) var(--motion-ease-enter);
   pointer-events: none;
+}
+
+.open .arrow {
+  transform: translateY(-50%) rotate(180deg);
 }
 
 .menu {
@@ -75,7 +80,7 @@
     0 0 1px 0 rgba(0, 0, 0, 0.2),
     0 0 4px 0 rgba(0, 0, 0, 0.02),
     0 12px 32px 0 rgba(0, 0, 0, 0.08);
-  animation: menu-in 0.12s ease-out;
+  animation: menu-in var(--motion-popup) var(--motion-ease-enter);
 }
 
 @keyframes menu-in {
@@ -84,7 +89,6 @@
     transform: translateY(-4px) scale(0.98);
   }
 }
-
 
 .option {
   box-sizing: border-box;

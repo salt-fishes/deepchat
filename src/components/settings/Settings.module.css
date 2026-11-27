@@ -85,6 +85,10 @@ body[data-ds-dark-theme] {
   padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   transform: translateX(0);
   transition: transform var(--motion-page) var(--motion-ease-enter);
+
+  &:focus {
+    outline: none;
+  }
 }
 
 /* 关闭时滑出（保持挂载到动效播完再卸载） */
@@ -138,14 +142,21 @@ body[data-ds-dark-theme] {
 }
 
 .settingsTransition[data-direction],
-.pageTitle[data-direction] {
+.pageTitle[data-direction],
+.desktopTitleText[data-direction] {
   --settings-enter-offset: 24px;
   animation: settings-enter var(--motion-page) var(--motion-ease-enter) backwards;
 }
 
 .settingsTransition[data-direction='back'],
-.pageTitle[data-direction='back'] {
+.pageTitle[data-direction='back'],
+.desktopTitleText[data-direction='back'] {
   --settings-enter-offset: -24px;
+}
+
+.pageTitle:focus,
+.desktopTitleText:focus {
+  outline: none;
 }
 
 @keyframes settings-enter {
@@ -1099,7 +1110,7 @@ body[data-ds-dark-theme] {
 }
 
 .statusIn {
-  animation: status-in 0.18s var(--ds-ease-in-out);
+  animation: status-in var(--motion-popup) var(--motion-ease-enter);
 }
 
 @keyframes status-in {

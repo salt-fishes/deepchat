@@ -31,7 +31,13 @@ import styles from './Sider.module.css'
  * 展开的侧边栏：名称与收起按钮、搜索、开启新对话、按时间分组的会话列表、底部设置；
  * 移动端放在推挤式抽屉里，收起按钮关闭抽屉。
  */
-export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
+export const Sider = ({
+  mobile = false,
+  collapseButtonRef,
+}: {
+  mobile?: boolean
+  collapseButtonRef?: RefObject<HTMLButtonElement>
+}) => {
   const t = useTranslate()
   const sessions = useChatStore((state) => state.sessions)
   const activeId = useChatStore((state) => state.activeId)
@@ -41,21 +47,26 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const [selection, setSelection] = useState<string[]>([])
   const [deleting, setDeleting] = useState<SessionSummary[] | null>(null)
   const deleteCount = useRef(0)
-  if (deleting) {deleteCount.current = deleting.length}
+  if (deleting) {
+    deleteCount.current = deleting.length
+  }
   const [deletePending, setDeletePending] = useState(false)
   const drawerOpen = useMobileSider((state) => state.open)
   const pinIds = useSessionPins((state) => state.ids)
   const pins = useMemo(() => new Set(pinIds), [pinIds])
   const selectedSessions = sessions.filter(({ id }) => selection.includes(id))
   const allPinned = selectedSessions.length > 0 && selectedSessions.every(({ id }) => pins.has(id))
-  const finishSelection = () => { setManaging(false); setSelection([]) }
+  const finishSelection = () => {
+    setManaging(false)
+    setSelection([])
+  }
   useEffect(() => {
     if (mobile && !drawerOpen) {
       setManaging(false)
       setSelection([])
     }
   }, [drawerOpen, mobile])
-  useEffect(() => managing ? registerOverlayToken(finishSelection) : undefined, [managing])
+  useEffect(() => (managing ? registerOverlayToken(finishSelection) : undefined), [managing])
   const listRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ top: 0, height: 0 })
   const rowHeight = mobile ? 46 : 40
@@ -67,7 +78,13 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
     if (!list) {
       return
     }
-    const measure = () => setViewport({ top: list.scrollTop, height: list.clientHeight })
+    const measure = () => {
+      const top = list.scrollTop
+      const height = list.clientHeight
+      setViewport((previous) =>
+        previous.top === top && previous.height === height ? previous : { top, height }
+      )
+    }
     const observer = new ResizeObserver(measure)
     observer.observe(list)
     list.addEventListener('scroll', measure, { passive: true })
@@ -98,9 +115,17 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
       filtered
         ? [{ key: 'search', label: '', sessions: filtered }]
         : [
-          { key: 'pinned', label: t('pinnedChats'), sessions: sessions.filter(({ id }) => pins.has(id)) },
-          ...groupSessions(sessions.filter(({ id }) => !pins.has(id)), now, t),
-        ].filter((group) => group.sessions.length > 0),
+            {
+              key: 'pinned',
+              label: t('pinnedChats'),
+              sessions: sessions.filter(({ id }) => pins.has(id)),
+            },
+            ...groupSessions(
+              sessions.filter(({ id }) => !pins.has(id)),
+              now,
+              t
+            ),
+          ].filter((group) => group.sessions.length > 0),
     [filtered, sessions, now, t, pins]
   )
 
@@ -147,6 +172,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
         <div className={styles.top}>
           <div className={styles.appName}>{t('appName')}</div>
           <IconButton
+            ref={collapseButtonRef}
             size="m"
             icon={<IconPanelLeftOutline16 />}
             tooltip={t('collapseSiderbarButton')}
@@ -155,10 +181,16 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           />
         </div>
       ) : null}
-      {managing ? <div className={styles.selectionHeader}>
-        <strong>{t('selectChats')}</strong>
-        <IconButton icon={<IconCloseOutline16 />} aria-label={t('close')} onClick={finishSelection} />
-      </div> : mobile ? (
+      {managing ? (
+        <div className={styles.selectionHeader}>
+          <strong>{t('selectChats')}</strong>
+          <IconButton
+            icon={<IconCloseOutline16 />}
+            aria-label={t('close')}
+            onClick={finishSelection}
+          />
+        </div>
+      ) : mobile ? (
         <button
           type="button"
           className={clsx(styles.searchBox, styles.searchButton)}
@@ -204,118 +236,190 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           ) : (
             virtualGroups.map(({ group, start }, index) => {
               const count = group.sessions.length
-              const first = Math.min(count, Math.max(0, Math.floor((viewport.top - start) / rowHeight) - 5))
-              const last = Math.max(first, Math.min(count, Math.ceil((viewport.top + viewport.height - start) / rowHeight) + 5))
+              const first = Math.min(
+                count,
+                Math.max(0, Math.floor((viewport.top - start) / rowHeight) - 5)
+              )
+              const last = Math.max(
+                first,
+                Math.min(count, Math.ceil((viewport.top + viewport.height - start) / rowHeight) + 5)
+              )
               return (
-              <div key={group.key} className={styles.section}>
-                {group.label ? (
-                  <div className={styles.sectionHeader}>
-                    {group.label}
-                     {!managing && index === 0 ? (
-                      <IconButton
-                         icon={<IconMultiSelect16 />}
-                         aria-label={t('selectChats')}
-                         onClick={() => setManaging(true)}
-                      />
-                    ) : null}
-                  </div>
-                ) : null}
-                {first > 0 ? <div aria-hidden="true" style={{ height: first * rowHeight }} /> : null}
-                {group.sessions.slice(first, last).map((session) => (
-                  <SessionItem
-                    key={session.id}
-                    session={session}
-                    active={session.id === activeId}
-                     hideActions={mobile || managing}
-                     selected={managing ? selection.includes(session.id) : undefined}
-                     pinned={pins.has(session.id)}
-                     onToggle={() => setSelection((current) => current.includes(session.id) ? current.filter((id) => id !== session.id) : [...current, session.id])}
-                     onMultiSelect={() => { setSelection([session.id]); setManaging(true) }}
-                     onPin={() => setSessionPins([session.id], !pins.has(session.id))}
-                     onDelete={() => setDeleting([session])}
-                  />
-                ))}
-                {last < count ? <div aria-hidden="true" style={{ height: (count - last) * rowHeight }} /> : null}
-              </div>
+                <div key={group.key} className={styles.section}>
+                  {group.label ? (
+                    <div className={styles.sectionHeader}>
+                      {group.label}
+                      {!managing && index === 0 ? (
+                        <IconButton
+                          icon={<IconMultiSelect16 />}
+                          aria-label={t('selectChats')}
+                          onClick={() => setManaging(true)}
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {first > 0 ? (
+                    <div aria-hidden="true" style={{ height: first * rowHeight }} />
+                  ) : null}
+                  {group.sessions.slice(first, last).map((session) => (
+                    <SessionItem
+                      key={session.id}
+                      session={session}
+                      active={session.id === activeId}
+                      hideActions={mobile || managing}
+                      selected={managing ? selection.includes(session.id) : undefined}
+                      pinned={pins.has(session.id)}
+                      onToggle={() =>
+                        setSelection((current) =>
+                          current.includes(session.id)
+                            ? current.filter((id) => id !== session.id)
+                            : [...current, session.id]
+                        )
+                      }
+                      onMultiSelect={() => {
+                        setSelection([session.id])
+                        setManaging(true)
+                      }}
+                      onPin={() => setSessionPins([session.id], !pins.has(session.id))}
+                      onDelete={() => setDeleting([session])}
+                    />
+                  ))}
+                  {last < count ? (
+                    <div aria-hidden="true" style={{ height: (count - last) * rowHeight }} />
+                  ) : null}
+                </div>
               )
             })
           )}
         </div>
       </div>
-       {managing ? <div className={styles.selectionActions}>
-         <button type="button" disabled={!selectedSessions.length} onClick={() => {
-           setSessionPins(selectedSessions.map(({ id }) => id), !allPinned)
-           finishSelection()
-         }}><IconPinOutline16 />{t(allPinned ? 'unpinChat' : 'pinChat')}</button>
-         <button type="button" disabled={!selectedSessions.length} onClick={() => setDeleting(selectedSessions)}><IconTrashOutline16 />{t('delete')}</button>
-       </div> : <div className={styles.bottom}>
-        <button
-          type="button"
-          className={styles.settings}
-          aria-label={t('settings')}
-          onClick={() => openSettings('general')}
-        >
-          {mobile ? (
-            <span className={styles.account}>
-              <span className={styles.avatar} aria-hidden="true">
-                D
+      {managing ? (
+        <div className={styles.selectionActions}>
+          <button
+            type="button"
+            disabled={!selectedSessions.length}
+            onClick={() => {
+              setSessionPins(
+                selectedSessions.map(({ id }) => id),
+                !allPinned
+              )
+              finishSelection()
+            }}
+          >
+            <IconPinOutline16 />
+            {t(allPinned ? 'unpinChat' : 'pinChat')}
+          </button>
+          <button
+            type="button"
+            disabled={!selectedSessions.length}
+            onClick={() => setDeleting(selectedSessions)}
+          >
+            <IconTrashOutline16 />
+            {t('delete')}
+          </button>
+        </div>
+      ) : (
+        <div className={styles.bottom}>
+          <button
+            type="button"
+            className={styles.settings}
+            aria-label={t('settings')}
+            onClick={() => openSettings('general')}
+          >
+            {mobile ? (
+              <span className={styles.account}>
+                <span className={styles.avatar} aria-hidden="true">
+                  D
+                </span>
+                <span className={styles.settingsLabel}>{t('appName')}</span>
               </span>
-              <span className={styles.settingsLabel}>{t('appName')}</span>
+            ) : null}
+            <span className={styles.settingsIcon}>
+              {mobile ? <IconEllipsisOutline16 /> : <IconSettingsOutline16 />}
             </span>
-          ) : null}
-          <span className={styles.settingsIcon}>
-            {mobile ? <IconEllipsisOutline16 /> : <IconSettingsOutline16 />}
-          </span>
-          {!mobile ? <span className={styles.settingsLabel}>{t('settings')}</span> : null}
-        </button>
-       </div>}
-        <Modal
-           open={deleting !== null}
-           title={t(deleteCount.current > 1 ? 'deleteSelectedChats' : 'deleteSessionModalContentTitle')}
-          onClose={() => {
-            if (!deletePending) {
-              setDeleting(null)
-            }
-          }}
-          footer={
-            <>
-              <Button variant="outlined" disabled={deletePending} onClick={() => setDeleting(null)}>
-                {t('cancel')}
-              </Button>
-              <Button
-                variant="danger"
-                 disabled={deletePending}
-                 onClick={async () => {
-                   if (!deleting) {return}
-                  setDeletePending(true)
-                  try {
-                     const failed = []
-                     for (const session of deleting) {
-                       if (await removeSession(session.id)) {
-                         setSessionPins([session.id], false)
-                       } else {
-                         failed.push(session)
-                       }
-                     }
-                     if (!failed.length) {
-                       setDeleting(null)
-                       finishSelection()
-                     } else {
-                       setDeleting(failed)
-                      showToast({ key: 'sessionDeleteFailed', type: 'error' })
-                    }
-                  } finally {
-                    setDeletePending(false)
-                  }
-                }}
-              >
-                {t('delete')}
-              </Button>
-            </>
+            {!mobile ? <span className={styles.settingsLabel}>{t('settings')}</span> : null}
+          </button>
+        </div>
+      )}
+      <Modal
+        open={deleting !== null}
+        title={t(
+          deleteCount.current > 1 ? 'deleteSelectedChats' : 'deleteSessionModalContentTitle'
+        )}
+        onClose={() => {
+          if (!deletePending) {
+            setDeleting(null)
           }
-        >
-          {t('deleteSessionWithFilesDescription')}
-        </Modal>
+        }}
+        footer={
+          <>
+            <Button variant="outlined" disabled={deletePending} onClick={() => setDeleting(null)}>
+              {t('cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              disabled={deletePending}
+              onClick={async () => {
+                if (!deleting) {
+                  return
+                }
+                setDeletePending(true)
+                try {
+                  const failed = []
+                  for (const session of deleting) {
+                    if (await removeSession(session.id)) {
+                      setSessionPins([session.id], false)
+                    } else {
+                      failed.push(session)
+                    }
+                  }
+                  if (!failed.length) {
+                    setDeleting(null)
+                    finishSelection()
+                  } else {
+                    setDeleting(failed)
+                    showToast({ key: 'sessionDeleteFailed', type: 'error' })
+                  }
+                } finally {
+                  setDeletePending(false)
+                }
+              }}
+            >
+              {t('delete')}
+            </Button>
+          </>
+        }
+      >
+        {t('deleteSessionWithFilesDescription')}
+      </Modal>
+    </div>
+  )
+}
+
+/** 桌面侧栏常驻挂载，只由外层宽度裁剪，保留查询、选择与滚动状态。 */
+export const DesktopSider = ({ collapsed }: { collapsed: boolean }) => {
+  const shellRef = useRef<HTMLDivElement>(null)
+  const collapseButtonRef = useRef<HTMLButtonElement>(null)
+  const initializedRef = useRef(false)
+  useLayoutEffect(() => {
+    if (shellRef.current) {
+      shellRef.current.inert = collapsed
+    }
+    if (!initializedRef.current) {
+      initializedRef.current = true
+      return
+    }
+    if (!collapsed) {
+      requestAnimationFrame(() => collapseButtonRef.current?.focus({ preventScroll: true }))
+    }
+  }, [collapsed])
+  return (
+    <div
+      ref={shellRef}
+      className={clsx(styles.siderShell, collapsed && styles.siderShellCollapsed)}
+      aria-hidden={collapsed}
+    >
+      <Sider collapseButtonRef={collapseButtonRef} />
     </div>
   )
 }
@@ -327,18 +431,19 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
  * transform 由 CSS 过渡在开合时驱动；手势拖动中由 useDrawerGesture 直写 inline 样式。
  */
 export const MobileSider = ({ drawerRef }: { drawerRef: RefObject<HTMLDivElement> }) => {
-  const open = useMobileSider((state) => state.open)
+  const drawerOpen = useMobileSider((state) => state.open)
   const dragging = useMobileSider((state) => state.dragging)
+  const settling = useMobileSider((state) => state.settling)
   return (
     <div
       ref={drawerRef}
       className={clsx(
         styles.drawer,
-        (open || dragging) && styles.drawerVisible,
-        open && !dragging && styles.drawerOpen,
+        (drawerOpen || dragging || settling) && styles.drawerVisible,
+        drawerOpen && !dragging && !settling && styles.drawerOpen,
         dragging && styles.drawerNoTransition
       )}
-      aria-hidden={!open && !dragging}
+      aria-hidden={!drawerOpen && !dragging && !settling}
     >
       <Sider mobile />
     </div>

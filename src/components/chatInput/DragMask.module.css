@@ -2,7 +2,6 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  animation: mask-in 0.15s var(--ds-ease-in-out);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11,10 +10,15 @@
   background-color: rgba(255, 255, 255, 0.7);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
+  animation: mask-in var(--motion-popup) var(--motion-ease-enter);
 
   [data-ds-dark-theme] & {
     background-color: rgba(39, 39, 48, 0.7);
   }
+}
+
+.mask[data-app-exiting] {
+  animation: mask-in var(--motion-feedback) var(--motion-ease-exit) reverse forwards;
 }
 
 .wrap {
@@ -27,6 +31,7 @@
   padding: 0 40px;
   color: var(--dsw-alias-label-primary);
   text-align: center;
+  animation: var(--motion-pop-enter) var(--motion-panel) var(--motion-ease-enter);
 }
 
 .title {

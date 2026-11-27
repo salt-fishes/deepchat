@@ -49,7 +49,7 @@ import {
 } from '../../services/settings.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
 import { Button } from '../base/Button.js'
-import { Modal, registerOverlayToken } from '../base/Modal.js'
+import { Modal, closeTopmostModal, registerOverlayToken } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import { showToast } from '../base/toastState.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
@@ -146,16 +146,73 @@ const SettingsPage = ({
   children: ReactNode
 }) => {
   const t = useTranslate()
+  const closingRef = useRef(closing)
+  closingRef.current = closing
   // 挂载期间（含滑出阶段）占用返回键；确认弹窗后注册，栈顶优先关闭
   const backRef = useRef(onBack)
   backRef.current = onBack
   useEffect(() => registerOverlayToken(() => backRef.current()), [])
+  useEffect(() => {
+    const page = surfaceRef.current
+    if (!page) {
+      return
+    }
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const focusFrame = requestAnimationFrame(() => page.focus({ preventScroll: true }))
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        closeTopmostModal()
+        return
+      }
+      if (closingRef.current || event.key !== 'Tab' || !page.contains(document.activeElement)) {
+        return
+      }
+      const focusable = Array.from(
+        page.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => element.getClientRects().length > 0 && !element.closest('[inert]'))
+      const first = focusable[0]
+      const last = focusable.at(-1)
+      if (!first || !last) {
+        event.preventDefault()
+        return
+      }
+      if (document.activeElement === page) {
+        event.preventDefault()
+        const target = event.shiftKey ? last : first
+        target.focus()
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      cancelAnimationFrame(focusFrame)
+      document.removeEventListener('keydown', onKeyDown)
+      if (
+        previousFocus?.isConnected &&
+        !previousFocus.closest('[inert]') &&
+        previousFocus.getClientRects().length > 0
+      ) {
+        previousFocus.focus({ preventScroll: true })
+      }
+    }
+  }, [surfaceRef])
   return createPortal(
     <div
       ref={surfaceRef}
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      tabIndex={-1}
       className={clsx(styles.page, closing && styles.pageClosing)}
     >
       <div className={styles.pageTop}>
@@ -168,7 +225,13 @@ const SettingsPage = ({
           aria-label={t('back')}
           onClick={onBack}
         />
-        <div key={section} className={styles.pageTitle} data-direction={direction ?? undefined}>
+        <div
+          key={section}
+          className={styles.pageTitle}
+          data-settings-title
+          data-direction={direction ?? undefined}
+          tabIndex={-1}
+        >
           {title}
         </div>
       </div>
@@ -192,8 +255,82 @@ const SettingsContent = ({
   historyExport: ReturnType<typeof useHistoryExport>
 }) => {
   const t = useTranslate()
+  const contentRef = useRef<HTMLDivElement>(null)
+  const navigationGenerationRef = useRef(0)
+  const navigationAnimationsRef = useRef<Animation[]>([])
+  const navigatingRef = useRef(false)
+  const [navigating, setNavigating] = useState(false)
   const section = useSettingsDialog((state) => state.section)
   const direction = useSettingsDialog((state) => state.direction)
+  const navigate = useCallback(
+    (target: SettingsSection, nextDirection: 'forward' | 'back' = 'forward') => {
+      if (navigatingRef.current) {
+        return
+      }
+      const content = contentRef.current
+      const title = surfaceRef.current?.querySelector<HTMLElement>('[data-settings-title]')
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      const commit = () => {
+        navigateSettings(target, nextDirection)
+        navigatingRef.current = false
+        setNavigating(false)
+        requestAnimationFrame(() => {
+          surfaceRef.current
+            ?.querySelector<HTMLElement>('[data-settings-title]')
+            ?.focus({ preventScroll: true })
+        })
+      }
+      if (reducedMotion || !content?.animate || !title?.animate) {
+        commit()
+        return
+      }
+      navigatingRef.current = true
+      setNavigating(true)
+      const generation = ++navigationGenerationRef.current
+      const offset = nextDirection === 'forward' ? -24 : 24
+      const options = {
+        duration: 220,
+        easing: 'cubic-bezier(0.4, 0, 0.8, 0.55)',
+        fill: 'forwards' as const,
+      }
+      const animations = [content, title].map((element) => {
+        const computed = getComputedStyle(element)
+        return element.animate(
+          [
+            { opacity: computed.opacity, transform: computed.transform },
+            { opacity: '0', transform: `translateX(${offset}px)` },
+          ],
+          options
+        )
+      })
+      navigationAnimationsRef.current = animations
+      void Promise.allSettled(animations.map((animation) => animation.finished)).then(() => {
+        if (navigationGenerationRef.current !== generation) {
+          return
+        }
+        navigationAnimationsRef.current = []
+        commit()
+      })
+    },
+    [surfaceRef]
+  )
+  useEffect(
+    () => () => {
+      navigationGenerationRef.current++
+      navigationAnimationsRef.current.forEach((animation) => animation.cancel())
+    },
+    []
+  )
+  useEffect(() => {
+    if (!closing) {
+      return
+    }
+    navigationGenerationRef.current++
+    navigationAnimationsRef.current.forEach((animation) => animation.cancel())
+    navigationAnimationsRef.current = []
+    navigatingRef.current = false
+    setNavigating(false)
+  }, [closing])
   const apiKeyEditor = useApiKeyEditor()
   const historyDelete = useHistoryDelete()
   const replacingHistory = useChatStore((state) => state.importingHistory)
@@ -209,7 +346,7 @@ const SettingsContent = ({
     if (section === 'general') {
       closeSettings()
     } else {
-      navigateSettings(section === 'usage' ? 'data' : 'general', 'back')
+      navigate(section === 'usage' ? 'data' : 'general', 'back')
     }
   }
   const title = t(settingsTitles[section])
@@ -243,7 +380,7 @@ const SettingsContent = ({
             </Button>
           }
         />
-        <SettingsRow page="usage" />
+        <SettingsRow page="usage" onNavigate={navigate} />
       </>
     ),
     language: <LocaleSetting />,
@@ -268,10 +405,10 @@ const SettingsContent = ({
     usage: <UsageSettings />,
   }
   const body = (
-    <div key={section} className={styles.settingsScroll}>
+    <div key={section} ref={contentRef} className={styles.settingsScroll} aria-busy={navigating}>
       <div className={styles.settingsTransition} data-direction={direction ?? undefined}>
         {section === 'general' ? (
-          <SettingsHome />
+          <SettingsHome onNavigate={navigate} />
         ) : section === 'usage' ? (
           pages.usage
         ) : (
@@ -295,11 +432,18 @@ const SettingsContent = ({
         </SettingsPage>
       ) : (
         <Modal
-          overlayRef={surfaceRef}
+          surfaceRef={surfaceRef}
           closing={closing}
           title={
             section === 'general' ? (
-              title
+              <span
+                className={styles.desktopTitleText}
+                data-settings-title
+                data-direction={direction ?? undefined}
+                tabIndex={-1}
+              >
+                {title}
+              </span>
             ) : (
               <span className={styles.desktopTitle}>
                 <IconButton
@@ -308,7 +452,15 @@ const SettingsContent = ({
                   aria-label={t('back')}
                   onClick={back}
                 />
-                {title}
+                <span
+                  key={section}
+                  className={styles.desktopTitleText}
+                  data-settings-title
+                  data-direction={direction ?? undefined}
+                  tabIndex={-1}
+                >
+                  {title}
+                </span>
               </span>
             )
           }

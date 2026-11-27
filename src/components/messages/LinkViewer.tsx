@@ -25,6 +25,7 @@ export const LinkViewer = () => {
   const overlayRef = useRef<HTMLDivElement>(null)
   const loadTimerRef = useRef(0)
   const visible = useExitPresence(request, overlayRef)
+  const present = !!visible
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -53,7 +54,7 @@ export const LinkViewer = () => {
   }
 
   useEffect(() => {
-    if (!request) {
+    if (!present) {
       return
     }
     const unregister = registerOverlayToken(close)
@@ -72,7 +73,7 @@ export const LinkViewer = () => {
       document.removeEventListener('keydown', onKeyDown, true)
       document.body.style.overflow = previous
     }
-  }, [request])
+  }, [present])
 
   useEffect(() => {
     if (!request) {

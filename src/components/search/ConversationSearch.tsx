@@ -77,14 +77,28 @@ export const ConversationSearch = () => {
   const [scan, setScan] = useState<{ keyword: string; hits: Hit[]; done: boolean }>()
   const [visibleLimit, setVisibleLimit] = useState(RESULT_LIMIT_INCREMENT)
   const inputRef = useRef<HTMLInputElement>(null)
+  const clearRef = useRef<HTMLButtonElement>(null)
+  const clearVisible = useExitPresence(query ? true : null, clearRef)
   const resultsRef = useRef<HTMLDivElement>(null)
-  const dateFormat = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }), [locale])
-  const recent = useMemo<Hit[]>(() => sessions.map((session) => ({
-    key: session.id, id: session.id, title: session.title, time: session.updatedAt,
-  })), [sessions])
+  const dateFormat = useMemo(
+    () => new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }),
+    [locale]
+  )
+  const recent = useMemo<Hit[]>(
+    () =>
+      sessions.map((session) => ({
+        key: session.id,
+        id: session.id,
+        title: session.title,
+        time: session.updatedAt,
+      })),
+    [sessions]
+  )
 
   useEffect(() => {
-    if (!open) {return}
+    if (!open) {
+      return
+    }
     if (!keyword) {
       setScan(undefined)
       return
@@ -95,23 +109,31 @@ export const ConversationSearch = () => {
       const hits: Hit[] = []
       let published = 0
       for (let offset = 0; offset < sessions.length && !cancelled; offset += BATCH_SIZE) {
-        const batch = await Promise.all(sessions.slice(offset, offset + BATCH_SIZE).map(async (summary) => {
-          const session = useChatStore.getState().sessionCache[summary.id] ?? await loadSession(summary.id).catch(() => undefined)
-          const result: Hit[] = []
-          const base = { id: summary.id, title: summary.title, time: summary.updatedAt }
-          if (session && !cancelled) {
-            for (let index = session.messages.length - 1; index >= 0; index--) {
-              const text = messageText(session.messages[index]).replace(/\s+/g, ' ').trim()
-              if (text.toLowerCase().includes(keyword)) {
-                result.push({ ...base, key: `${summary.id}:${session.messages[index].id}`, snippet: clipSnippet(text, keyword) })
+        const batch = await Promise.all(
+          sessions.slice(offset, offset + BATCH_SIZE).map(async (summary) => {
+            const session =
+              useChatStore.getState().sessionCache[summary.id] ??
+              (await loadSession(summary.id).catch(() => undefined))
+            const result: Hit[] = []
+            const base = { id: summary.id, title: summary.title, time: summary.updatedAt }
+            if (session && !cancelled) {
+              for (let index = session.messages.length - 1; index >= 0; index--) {
+                const text = messageText(session.messages[index]).replace(/\s+/g, ' ').trim()
+                if (text.toLowerCase().includes(keyword)) {
+                  result.push({
+                    ...base,
+                    key: `${summary.id}:${session.messages[index].id}`,
+                    snippet: clipSnippet(text, keyword),
+                  })
+                }
               }
             }
-          }
-          if (result.length === 0 && summary.title.toLowerCase().includes(keyword)) {
-            result.push({ ...base, key: summary.id })
-          }
-          return result
-        }))
+            if (result.length === 0 && summary.title.toLowerCase().includes(keyword)) {
+              result.push({ ...base, key: summary.id })
+            }
+            return result
+          })
+        )
         if (cancelled) {
           return
         }
@@ -138,7 +160,9 @@ export const ConversationSearch = () => {
   }, [open, sessions, keyword])
 
   useEffect(() => {
-    if (!open) {return}
+    if (!open) {
+      return
+    }
     setVisibleLimit(RESULT_LIMIT_INCREMENT)
     if (resultsRef.current) {
       resultsRef.current.scrollTop = 0
@@ -146,17 +170,21 @@ export const ConversationSearch = () => {
   }, [open, keyword])
 
   useEffect(() => {
-    if (!open) {return}
+    if (!open) {
+      return
+    }
     const trigger = document.activeElement
     inputRef.current?.focus({ preventScroll: true })
     return () => {
-      if (trigger instanceof HTMLElement && trigger.isConnected) {trigger.focus({ preventScroll: true })}
+      if (trigger instanceof HTMLElement && trigger.isConnected) {
+        trigger.focus({ preventScroll: true })
+      }
     }
   }, [open])
 
   const current = scan?.keyword === keyword ? scan : undefined
   const searching = Boolean(keyword) && !current?.done
-  const hits = keyword ? current?.hits ?? [] : recent
+  const hits = keyword ? (current?.hits ?? []) : recent
 
   if (!visible) {
     return null
@@ -191,10 +219,13 @@ export const ConversationSearch = () => {
             }}
             onChange={(event) => setConversationSearchQuery(event.target.value)}
           />
-          {query ? (
+          {clearVisible ? (
             <button
+              ref={clearRef}
               type="button"
               className={styles.clear}
+              data-app-exiting={!query || undefined}
+              aria-hidden={!query || undefined}
               aria-label={t('clearConversationSearch')}
               onClick={() => {
                 setConversationSearchQuery('')
@@ -206,14 +237,23 @@ export const ConversationSearch = () => {
           ) : null}
         </div>
       </div>
-      <div ref={resultsRef} className={styles.results} onScroll={(event) => {
-        const list = event.currentTarget
-        if (visibleLimit < hits.length && list.scrollHeight - list.scrollTop - list.clientHeight < 350) {
-          setVisibleLimit((limit) => limit + RESULT_LIMIT_INCREMENT)
-        }
-      }}>
+      <div
+        ref={resultsRef}
+        className={styles.results}
+        onScroll={(event) => {
+          const list = event.currentTarget
+          if (
+            visibleLimit < hits.length &&
+            list.scrollHeight - list.scrollTop - list.clientHeight < 350
+          ) {
+            setVisibleLimit((limit) => limit + RESULT_LIMIT_INCREMENT)
+          }
+        }}
+      >
         {hits.length === 0 ? (
-          <div className={styles.empty} role="status">{t(searching ? 'conversationSearching' : 'searchNoResults')}</div>
+          <div className={styles.empty} role="status">
+            {t(searching ? 'conversationSearching' : 'searchNoResults')}
+          </div>
         ) : (
           hits.slice(0, visibleLimit).map(({ key, id, title, snippet, time }) => (
             <button

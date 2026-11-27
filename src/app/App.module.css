@@ -100,7 +100,8 @@
   /* 推挤式抽屉：主内容右移露出圆角 sliver，抽屉在其下方（portal）滑入 */
   .main {
     z-index: 761;
-    transition: transform var(--motion-page) var(--motion-ease-enter);
+    transition: transform var(--drawer-duration, var(--motion-page))
+      var(--drawer-easing, var(--motion-ease-enter));
     /* 纵向滚动交给原生，横向让给全页抽屉手势（useDrawerGesture 的主内容拖动） */
     touch-action: pan-y pinch-zoom;
   }

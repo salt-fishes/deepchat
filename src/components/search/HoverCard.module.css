@@ -8,14 +8,16 @@
   border: 1px solid var(--dsw-alias-border-inverted);
   background: var(--dsw-specific-menu);
   box-shadow: var(--dsw-shadow-lv3);
-  animation: hovercard-in 0.12s ease-out;
+  animation: hovercard-in var(--motion-popup) var(--motion-ease-enter);
 }
 
 @keyframes hovercard-in {
   from {
     opacity: 0;
+    transform: translateY(4px) scale(0.985);
   }
   to {
     opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

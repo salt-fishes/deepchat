@@ -63,6 +63,6 @@ test('card height shrinks with content and never exceeds the maximum', () => {
 })
 
 test('excerpt date is stable in Beijing time', () => {
-  assert.equal(formatShareCardDate(Date.UTC(2026, 10, 2, 16, 30)), '2026/11/03')
-  assert.equal(formatShareCardDate(Date.UTC(2026, 10, 2, 15, 59)), '2026/11/02')
+  assert.equal(formatShareCardDate(Date.UTC(2026, 10, 2, 16, 30)), '2026-11-03')
+  assert.equal(formatShareCardDate(Date.UTC(2026, 10, 2, 15, 59)), '2026-11-02')
 })

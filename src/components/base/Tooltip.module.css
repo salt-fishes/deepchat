@@ -14,7 +14,7 @@
   font-size: 12px;
   line-height: 1.5;
   pointer-events: none;
-  animation: tooltip-in 0.1s ease-out;
+  animation: tooltip-in var(--motion-feedback) var(--motion-ease-enter);
 
   [data-ds-dark-theme] & {
     color: var(--dsw-alias-label-primary);

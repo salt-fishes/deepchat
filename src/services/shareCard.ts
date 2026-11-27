@@ -24,7 +24,7 @@ export const formatShareCardDate = (value: number | Date): string => {
   if (Number.isNaN(date.getTime())) {
     return ''
   }
-  return `${date.getUTCFullYear()}/${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}`
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`
 }
 
 /** 分享卡片使用纯文本：保留段落和代码内容，去掉 Markdown 装饰与引用角标。 */
@@ -263,20 +263,19 @@ export const createShareCardFile = async ({
   context.lineTo(CARD_PADDING + 45, 119)
   context.stroke()
 
-  context.fillStyle = '#172033'
+  context.fillStyle = '#4d6bff'
   context.font = `650 42px ${SHARE_CARD_FONT_FAMILY}`
   context.textBaseline = 'alphabetic'
   context.fillText('deepchat', CARD_PADDING + 82, 124)
-  context.fillStyle = '#7b8499'
-  context.font = `500 22px ${SHARE_CARD_FONT_FAMILY}`
-  context.textAlign = 'right'
-  context.fillText('AI ANSWER', SHARE_CARD_WIDTH - CARD_PADDING, 119)
   context.textAlign = 'left'
 
-  context.fillStyle = 'rgba(23, 32, 51, 0.1)'
-  context.font = '120px Georgia, "Times New Roman", serif'
+  context.fillStyle = 'rgba(77, 107, 255, 0.09)'
+  context.font = '170px Georgia, "Times New Roman", serif'
+  context.textAlign = 'right'
   context.textBaseline = 'top'
-  context.fillText('“', CARD_PADDING - 8, 164)
+  context.fillText('“', SHARE_CARD_WIDTH - CARD_PADDING, 112)
+  context.fillText('“', SHARE_CARD_WIDTH - CARD_PADDING - 132, 112)
+  context.textAlign = 'left'
 
   context.fillStyle = '#20283a'
   context.font = bodyFont
@@ -299,6 +298,6 @@ export const createShareCardFile = async ({
   context.fillText(disclaimer, SHARE_CARD_WIDTH - CARD_PADDING, footerY, bodyWidth)
   context.textAlign = 'left'
 
-  const date = formatShareCardDate(createdAt).replaceAll('/', '') || 'answer'
+  const date = formatShareCardDate(createdAt).replaceAll('-', '') || 'answer'
   return canvasFile(canvas, `deepchat-answer-${date}.png`)
 }

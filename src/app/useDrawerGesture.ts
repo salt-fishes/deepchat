@@ -1,9 +1,9 @@
 import { useEffect, type RefObject } from 'react'
 import { flushSync } from 'react-dom'
+import { getDrawerMotion, resolveDrawerTarget } from '../app/drawerMotion.js'
 import {
-  closeMobileSider,
-  openMobileSider,
   setSiderDragging,
+  setSiderSettling,
   useMobileSider,
 } from '../components/sider/mobileSiderState.js'
 
@@ -15,9 +15,10 @@ type DrawerGestureOptions = {
 }
 
 const INTENT_DISTANCE = 10
-const COMMIT_PROGRESS = 0.3
-const FLING_VELOCITY = 0.45
 const EDITOR = 'textarea, input, select, [contenteditable]:not([contenteditable="false"])'
+const ENTER_EASING = 'cubic-bezier(0.2, 0.75, 0.25, 1)'
+const EXIT_EASING = 'cubic-bezier(0.4, 0, 0.8, 0.55)'
+const clamp = (value: number) => Math.max(0, Math.min(1, value))
 
 export const useDrawerGesture = ({
   isMobile,
@@ -37,52 +38,144 @@ export const useDrawerGesture = ({
       id: number
       surface: HTMLElement
       target: Element
-      open: boolean
+      startedOpen: boolean
       width: number
       startX: number
       startY: number
       initialProgress: number
       claimed: boolean
+      interrupted: boolean
       progress: number
       samples: { x: number; time: number }[]
     }
+    type Settle = {
+      generation: number
+      timeout: number
+      onEnd: (event: TransitionEvent) => void
+    }
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     let drag: Drag | null = null
+    let settle: Settle | null = null
     let suppressClick = false
     let frame = 0
+    let settleFrame = 0
+    let generation = 0
 
     const paint = (progress: number, width: number) => {
+      const scale = reducedMotion.matches ? 1 : 1 - progress * 0.015
       drawer.style.transform = `translateX(${(progress - 1) * 100}%)`
-      main.style.transform = `translateX(${progress * width}px) scaleY(${1 - progress * 0.015})`
+      main.style.transform = `translateX(${progress * width}px) scaleY(${scale})`
     }
 
-    const clearTransforms = () => {
+    const readProgress = () => {
+      const transform = getComputedStyle(main).transform
+      const x = transform === 'none' ? 0 : new DOMMatrixReadOnly(transform).m41
+      return clamp(x / Math.max(1, drawer.offsetWidth))
+    }
+
+    const clearInlineTransforms = () => {
       drawer.style.removeProperty('transform')
       main.style.removeProperty('transform')
+      drawer.style.removeProperty('transition')
+      main.style.removeProperty('transition')
     }
 
-    const finish = (open: boolean) => {
-      const active = drag
-      drag = null
-      cancelAnimationFrame(frame)
-      frame = 0
-      if (!active?.claimed) {
+    const clearMotionVariables = () => {
+      drawer.style.removeProperty('--drawer-duration')
+      drawer.style.removeProperty('--drawer-easing')
+      main.style.removeProperty('--drawer-duration')
+      main.style.removeProperty('--drawer-easing')
+    }
+
+    const clearSettle = () => {
+      if (!settle) {
         return
       }
-      suppressClick = true
-      flushSync(() => {
-        if (open) {
-          openMobileSider()
-        } else {
-          closeMobileSider()
+      window.clearTimeout(settle.timeout)
+      main.removeEventListener('transitionend', settle.onEnd)
+      settle = null
+      if (settleFrame) {
+        cancelAnimationFrame(settleFrame)
+        settleFrame = 0
+      }
+    }
+
+    const finishSettle = (expected: number) => {
+      if (!settle || settle.generation !== expected) {
+        return
+      }
+      clearSettle()
+      clearInlineTransforms()
+      clearMotionVariables()
+      setSiderSettling(false)
+    }
+
+    const beginSettle = (targetOpen: boolean, progress: number, velocity = 0) => {
+      clearSettle()
+      drawer.style.removeProperty('transition')
+      main.style.removeProperty('transition')
+      const width = Math.max(1, drawer.offsetWidth)
+      const current = clamp(progress)
+      const target = targetOpen ? 1 : 0
+      if (Math.abs(target - current) < 0.005 || reducedMotion.matches) {
+        useMobileSider.setState({ open: targetOpen, dragging: false, settling: false })
+        clearInlineTransforms()
+        clearMotionVariables()
+        return
+      }
+      const currentGeneration = ++generation
+      const motion = getDrawerMotion(current, targetOpen, velocity, width)
+      const easing = motion.easing === 'enter' ? ENTER_EASING : EXIT_EASING
+      useMobileSider.setState({ open: targetOpen, dragging: false, settling: true })
+      paint(current, width)
+      drawer.style.setProperty('--drawer-duration', `${motion.duration}ms`)
+      drawer.style.setProperty('--drawer-easing', easing)
+      main.style.setProperty('--drawer-duration', `${motion.duration}ms`)
+      main.style.setProperty('--drawer-easing', easing)
+      // Commit the release position before letting the CSS transition take over.
+      void main.offsetWidth
+      const onEnd = (event: TransitionEvent) => {
+        if (event.target === main && event.propertyName === 'transform') {
+          finishSettle(currentGeneration)
         }
+      }
+      settle = {
+        generation: currentGeneration,
+        timeout: window.setTimeout(() => finishSettle(currentGeneration), motion.duration + 120),
+        onEnd,
+      }
+      main.addEventListener('transitionend', onEnd)
+      settleFrame = requestAnimationFrame(() => {
+        settleFrame = requestAnimationFrame(() => {
+          if (settle?.generation === currentGeneration) {
+            clearInlineTransforms()
+          }
+        })
       })
-      clearTransforms()
+    }
+
+    const releaseCapture = (active: Drag) => {
+      if (active.surface.hasPointerCapture(active.id)) {
+        active.surface.releasePointerCapture(active.id)
+      }
     }
 
     const onDown = (event: PointerEvent) => {
       if (!event.isPrimary) {
         if (drag) {
-          finish(drag.open)
+          const active = drag
+          drag = null
+          if (active.claimed) {
+            suppressClick = true
+            releaseCapture(active)
+            beginSettle(
+              resolveDrawerTarget(active.progress, active.startedOpen, 0, 0),
+              active.progress
+            )
+          } else if (active.interrupted) {
+            beginSettle(useMobileSider.getState().open, active.progress)
+          }
         }
         return
       }
@@ -94,25 +187,33 @@ export const useDrawerGesture = ({
       if (!(target instanceof Element) || target.closest(EDITOR)) {
         return
       }
-      const open = useMobileSider.getState().open
-      const surface = [main, ...(open ? [drawer, sliver] : [])].find((item) =>
+      const wasSettling = !!settle
+      const state = useMobileSider.getState()
+      const surface = [main, ...(state.open || wasSettling ? [drawer, sliver] : [])].find((item) =>
         item.contains(target)
       )
       if (!surface || !drawer.offsetWidth) {
         return
       }
-
+      const initialProgress = readProgress()
+      if (wasSettling) {
+        clearSettle()
+        drawer.style.transition = 'none'
+        main.style.transition = 'none'
+        paint(initialProgress, drawer.offsetWidth)
+      }
       drag = {
         id: event.pointerId,
         surface,
         target,
-        open,
+        startedOpen: initialProgress >= 0.5,
         width: drawer.offsetWidth,
         startX: event.clientX,
         startY: event.clientY,
-        initialProgress: Number(open),
+        initialProgress,
         claimed: false,
-        progress: open ? 1 : 0,
+        interrupted: wasSettling,
+        progress: initialProgress,
         samples: [{ x: event.clientX, time: event.timeStamp }],
       }
     }
@@ -120,9 +221,8 @@ export const useDrawerGesture = ({
     const track = (active: Drag, event: PointerEvent) => {
       active.samples.push({ x: event.clientX, time: event.timeStamp })
       active.samples = active.samples.filter(({ time }) => event.timeStamp - time <= 100)
-      active.progress = Math.max(
-        0,
-        Math.min(1, active.initialProgress + (event.clientX - active.startX) / active.width)
+      active.progress = clamp(
+        active.initialProgress + (event.clientX - active.startX) / active.width
       )
     }
 
@@ -137,9 +237,7 @@ export const useDrawerGesture = ({
         if (Math.max(Math.abs(dx), Math.abs(dy)) < INTENT_DISTANCE) {
           return
         }
-        const direction = active.open ? -1 : 1
         const selecting = window.getSelection()?.type === 'Range'
-        // 浏览器内的横向滚动区（如宽代码块、附件列表）保留自己的滑动。
         let horizontalScroll = false
         for (
           let element: Element | null = active.target;
@@ -154,23 +252,37 @@ export const useDrawerGesture = ({
             break
           }
         }
-        if (dx * direction < Math.abs(dy) * 1.2 || selecting || horizontalScroll) {
+        const outward =
+          (active.initialProgress <= 0.001 && dx < 0) || (active.initialProgress >= 0.999 && dx > 0)
+        if (outward || Math.abs(dx) < Math.abs(dy) * 1.2 || selecting || horizontalScroll) {
+          const interrupted = active.interrupted
           drag = null
+          if (interrupted) {
+            beginSettle(useMobileSider.getState().open, active.progress)
+          }
           return
         }
         active.claimed = true
-        active.surface.setPointerCapture(event.pointerId)
-        const transform = getComputedStyle(main).transform
-        const currentX = transform === 'none' ? 0 : new DOMMatrixReadOnly(transform).m41
-        active.initialProgress = Math.max(0, Math.min(1, currentX / active.width))
-        paint(active.initialProgress, active.width)
+        try {
+          active.surface.setPointerCapture(event.pointerId)
+        } catch {
+          const interrupted = active.interrupted
+          drag = null
+          if (interrupted) {
+            beginSettle(useMobileSider.getState().open, active.progress)
+          }
+          return
+        }
+        paint(active.initialProgress, drawer.offsetWidth)
         flushSync(() => setSiderDragging(true))
       }
       track(active, event)
       if (!frame) {
         frame = requestAnimationFrame(() => {
           frame = 0
-          paint(active.progress, active.width)
+          if (drag === active) {
+            paint(active.progress, drawer.offsetWidth)
+          }
         })
       }
     }
@@ -180,27 +292,52 @@ export const useDrawerGesture = ({
       if (!active || event.pointerId !== active.id) {
         return
       }
+      drag = null
       if (!active.claimed) {
-        drag = null
+        if (active.interrupted) {
+          beginSettle(useMobileSider.getState().open, active.progress)
+        }
         return
       }
       track(active, event)
       const first = active.samples[0]
-      const directionalVelocity =
-        ((event.clientX - first.x) / Math.max(1, event.timeStamp - first.time)) *
-        (active.open ? -1 : 1)
-      const distance = active.open ? 1 - active.progress : active.progress
-      const travelled = Math.abs(event.clientX - active.startX)
-      const commit =
-        distance >= COMMIT_PROGRESS ||
-        (travelled >= 24 && directionalVelocity >= FLING_VELOCITY)
-      finish(commit ? !active.open : active.open)
+      const last = active.samples.at(-1) ?? first
+      const elapsed = Math.max(1, last.time - first.time)
+      const velocity = (last.x - first.x) / elapsed
+      const recentTravel = Math.abs(last.x - first.x)
+      const targetOpen = resolveDrawerTarget(
+        active.progress,
+        active.startedOpen,
+        velocity,
+        recentTravel
+      )
+      suppressClick = true
+      releaseCapture(active)
+      beginSettle(targetOpen, active.progress, velocity)
     }
 
     const onCancel = (event: PointerEvent) => {
-      if (drag?.id === event.pointerId) {
-        finish(drag.open)
+      const active = drag
+      if (!active || event.pointerId !== active.id) {
+        return
       }
+      drag = null
+      if (!active.claimed) {
+        if (active.interrupted) {
+          beginSettle(useMobileSider.getState().open, active.progress)
+        }
+        return
+      }
+      suppressClick = true
+      releaseCapture(active)
+      beginSettle(resolveDrawerTarget(active.progress, active.startedOpen, 0, 0), active.progress)
+    }
+
+    const onLostCapture = (event: PointerEvent) => {
+      if (drag?.id !== event.pointerId) {
+        return
+      }
+      onCancel(event)
     }
 
     const onClick = (event: MouseEvent) => {
@@ -212,22 +349,55 @@ export const useDrawerGesture = ({
       event.stopPropagation()
     }
 
+    const unsubscribe = useMobileSider.subscribe((state, previous) => {
+      if (state.gestureEpoch === previous.gestureEpoch) {
+        return
+      }
+      generation++
+      cancelAnimationFrame(frame)
+      frame = 0
+      if (drag?.claimed || settle) {
+        const progress = readProgress()
+        drag = null
+        beginSettle(state.open, progress)
+      } else {
+        drag = null
+        clearInlineTransforms()
+        clearMotionVariables()
+      }
+    })
+    const onReducedMotionChange = () => {
+      if (reducedMotion.matches && settle) {
+        finishSettle(settle.generation)
+      }
+    }
+
     window.addEventListener('pointerdown', onDown, true)
     window.addEventListener('pointermove', onMove, true)
     window.addEventListener('pointerup', onUp, true)
     window.addEventListener('pointercancel', onCancel, true)
+    window.addEventListener('lostpointercapture', onLostCapture, true)
     window.addEventListener('click', onClick, true)
+    reducedMotion.addEventListener('change', onReducedMotionChange)
     return () => {
+      unsubscribe()
       window.removeEventListener('pointerdown', onDown, true)
       window.removeEventListener('pointermove', onMove, true)
       window.removeEventListener('pointerup', onUp, true)
       window.removeEventListener('pointercancel', onCancel, true)
+      window.removeEventListener('lostpointercapture', onLostCapture, true)
       window.removeEventListener('click', onClick, true)
+      reducedMotion.removeEventListener('change', onReducedMotionChange)
       cancelAnimationFrame(frame)
+      clearSettle()
       if (drag?.claimed) {
         setSiderDragging(false)
       }
-      clearTransforms()
+      if (useMobileSider.getState().settling) {
+        setSiderSettling(false)
+      }
+      clearInlineTransforms()
+      clearMotionVariables()
     }
   }, [isMobile, drawerRef, mainRef, sliverRef])
 }
