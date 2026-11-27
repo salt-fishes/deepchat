@@ -5,7 +5,7 @@
 ## 环境（本机已验证）
 
 - JDK 21（需设置 `JAVA_HOME` 指向 JDK 21 安装目录；Capacitor 9 默认按 JDK 21 编译）
-- Android SDK：platforms 35/36/37，build-tools 35/36/37
+- Android SDK：platform 37（`android-37.0`），build-tools 37.0.0
 - Gradle wrapper 9.7.1（本机缓存）+ AGP 9.3.1
 
 ## 构建
@@ -279,14 +279,16 @@ WcdbProbe result = database.getFirstObject(
 
 ## 自签名 release 包
 
+正式发版、版本检查、签名验证、产物打包和 GitHub Release 流程统一见 [RELEASE.md](RELEASE.md)。
+
 本机已生成自签名 keystore 并配置好 release 签名，可直接构建正式包：
 
 ```powershell
-cd android
-.\gradlew.bat assembleRelease --no-daemon
+pnpm apk:release
+pnpm release:package
 ```
 
-产物：`android/app/build/outputs/apk/release/app-release.apk`（约 5 MB）
+构建产物：`android/app/build/outputs/apk/release/app-release.apk`；对外分发产物：`release/deepchat-release-signed.apk`（大小随版本变化）。
 
 - keystore：`android/app/chatdemo-release.jks`（alias `chatdemo`，有效期 10000 天，RSA 2048）。keystore 与密码均不入库，放在本地 `android/signing.properties`（模板见 `signing.properties.example`）。
 - 签名信息放在 `android/signing.properties` 的 `chatdemo.*` 项，`build.gradle` 读取它而非写死密码；该文件已加入 `.gitignore`，请勿提交。

@@ -4,7 +4,15 @@ import { ApiError, streamMessage } from '../api/client.js'
 import type { ChatModel, CreateMessageRequest } from '../api/types.js'
 import { extractFileIds, getFileErrorCode, isRetryableApiError } from '../api/errors.js'
 import { cancelUpload, describeUploadError, uploadAttachment, useUploads } from '../attachments.js'
-import { clearChatPreferences, getChatPreferences, moveChatPreferences, useChatPreferences, useSettings } from '../settings.js'
+import {
+  clearChatPreferences,
+  getChatPreferences,
+  moveChatPreferences,
+  useChatPreferences,
+  useSettings,
+} from '../settings.js'
+import { setBackgroundGenerationActive } from '../backgroundGeneration.js'
+import { buildSystemPrompt } from './systemPrompt.js'
 import { appendBranch, getVisibleMessages, normalizeSession, selectVersion } from './branches.js'
 import * as db from './db.js'
 import {
@@ -34,9 +42,6 @@ import {
 
 /** deepseek-flash 同时支持深度思考与图片输入 */
 const MODEL: ChatModel = 'deepseek-flash'
-/** 所有生成请求统一携带的助手身份说明 */
-const SYSTEM_PROMPT = String.raw`该助手为 deepchat。
-在 Markdown 正文中，数学公式使用 KaTeX 支持的 LaTeX 语法。行内公式用 $...$，独立公式用单独成行的 $$ 开始和结束，公式内容放在两行定界符之间。多行推导在块公式内使用 \begin{aligned}...\end{aligned}。化学式可用 $\ce{...}$。不要用代码围栏、HTML、MathML、完整 LaTeX 文档或自定义宏来展示公式；仅在用户明确索要源码时放进代码块。`
 /** 保留最近打开的详情；当前会话、生成中及尚未成功保存的会话不淘汰。 */
 const SESSION_CACHE_LIMIT = 5
 /** 安全审核固定开启，所有请求都走扩展模式 */
@@ -391,7 +396,10 @@ const waitForIdle = (sessionId?: string) =>
  * 替换历史对话：先写入暂存，成功后原子替换旧记录；写入为空即删除全部会话与附件。
  * 期间停止生成并禁止修改会话；失败时清除暂存，保留原有记录。
  */
-export const replaceHistory = async (write: () => Promise<void>, external = false): Promise<number> => {
+export const replaceHistory = async (
+  write: () => Promise<void>,
+  external = false
+): Promise<number> => {
   if (get().importingHistory) {
     throw new Error('History replacement is already in progress')
   }
@@ -563,6 +571,11 @@ export const sendMessage = (targetSessionId: string | null) => {
     return false
   }
   const { text, files } = prepared
+  for (const file of files) {
+    if (file.isImage) {
+      db.cacheRecentImage(file.id, file.blob)
+    }
+  }
   const now = Date.now()
   let sessionId = targetSessionId
   if (
@@ -976,6 +989,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     titleRequests.add(controller)
   }
   set((state) => ({ streaming: { ...state.streaming, [sessionId]: controller } }))
+  setBackgroundGenerationActive(true)
   let reply = initial
   let frame = 0
   const flush = () => {
@@ -1011,15 +1025,14 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           useSettings.getState().apiKey ?? '',
           {
             model: initial.model ?? MODEL,
-            system: SYSTEM_PROMPT,
+            system: buildSystemPrompt(initial.search ?? false),
             messages,
             thinking: { type: initial.thinking ? 'enabled' : 'disabled' },
             // 思考强度仅深度思考开启时生效；网关忽略 budget_tokens，只认 output_config.effort
             ...(initial.thinking
               ? {
                   output_config: {
-                    effort:
-                      initial.thinkingEffort ?? useSettings.getState().thinkingEffort,
+                    effort: initial.thinkingEffort ?? useSettings.getState().thinkingEffort,
                   },
                 }
               : {}),
@@ -1109,6 +1122,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         Object.entries(state.streaming).filter(([id]) => id !== sessionId)
       ),
     }))
+    setBackgroundGenerationActive(Object.keys(get().streaming).length > 0)
     persist(sessionId)
   }
 }

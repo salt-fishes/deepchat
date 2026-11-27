@@ -1,5 +1,9 @@
 .ds-markdown {
-  --dsw-font-markdown-base: calc(16px + var(--chat-font-offset, 0px))/calc(28px + var(--chat-font-offset, 0px)) var(--dsw-font-family);
+  --dsw-font-markdown-base: var(--chat-font-size, calc(16px + var(--chat-font-offset, 0px)))/var(
+      --chat-line-height,
+      calc(28px + var(--chat-font-offset, 0px))
+    )
+    var(--dsw-font-family);
   --dsw-font-markdown-base-strong: 600 var(--dsw-font-markdown-base);
   font: var(--dsw-font-markdown-base);
   color: var(--dsw-alias-label-primary);
@@ -397,9 +401,15 @@
   color: var(--dsw-alias-label-secondary);
   font-size: 14px;
 }
-.ds-streaming-text { animation: ds-streaming-reveal 210ms ease-out both; }
+.ds-streaming-text {
+  animation: ds-streaming-reveal 210ms ease-out both;
+}
 
 @keyframes ds-streaming-reveal {
-  from { opacity: 0.28; }
-  to { opacity: 1; }
+  from {
+    opacity: 0.28;
+  }
+  to {
+    opacity: 1;
+  }
 }

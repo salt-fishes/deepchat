@@ -6,6 +6,7 @@
   /* 长会话时跳过视口外消息的渲染；auto 记住上次渲染尺寸，减少滚动条跳动 */
   content-visibility: auto;
   contain-intrinsic-size: auto 96px;
+  -webkit-touch-callout: none;
 
   &.isFirst {
     padding-top: 34px;
@@ -47,23 +48,42 @@
   box-sizing: border-box;
   padding: 10px 16px;
   border-radius: 22px;
-  font-size: calc(16px + var(--chat-font-offset, 0px));
-  line-height: 24px;
+  font-size: var(--chat-font-size, calc(16px + var(--chat-font-offset, 0px)));
+  line-height: var(--chat-line-height, 24px);
   color: var(--dsw-alias-label-primary);
   background-color: var(--dsw-specific-bubble);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.bubbleClamp { max-height: calc(8 * 1lh); overflow: hidden; }
-.bubbleFaded .bubbleClamp { mask-image: linear-gradient(#000 84%, transparent); }
-.bubbleToggle {
-  position: absolute; right: 10px; bottom: 9px; display: grid; place-items: center; width: 30px; height: 23px;
-  border: 0; border-radius: 20px; background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-primary); cursor: pointer;
+.bubbleClamp {
+  max-height: calc(8 * 1lh);
+  overflow: hidden;
 }
-.bubbleToggle[aria-expanded='true'] { position: static; margin: 5px 0 0 auto; }
-.bubbleToggle[aria-expanded='true'] svg { transform: rotate(180deg); }
+.bubbleFaded .bubbleClamp {
+  mask-image: linear-gradient(#000 84%, transparent);
+}
+.bubbleToggle {
+  position: absolute;
+  right: 10px;
+  bottom: 9px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 23px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+.bubbleToggle[aria-expanded='true'] {
+  position: static;
+  margin: 5px 0 0 auto;
+}
+.bubbleToggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
 
 @media not all and (min-width: 440px) {
   .bubble {

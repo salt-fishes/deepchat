@@ -3,6 +3,7 @@
   /* 长会话时跳过视口外消息的渲染；auto 记住上次渲染尺寸，减少滚动条跳动 */
   content-visibility: auto;
   contain-intrinsic-size: auto 128px;
+  -webkit-touch-callout: none;
 
   &:hover .actions,
   &:focus-within .actions {

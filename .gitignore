@@ -9,6 +9,7 @@ build/
 .env.*
 !.env.example
 tmp/
+release/
 
 # Android / Capacitor
 android/.gradle/

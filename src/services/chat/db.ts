@@ -348,7 +348,7 @@ const wcdbSaveFiles = async (files: StoredFile[]): Promise<void> => {
 const wcdbLoadFile = async (id: string): Promise<Blob | undefined> => {
   await ensureReady()
   const item = await wcdb.get(KIND.file, id)
-  return item?.blob ? wcdb.itemToFile(item).blob : undefined
+  return item?.blob ? wcdb.itemToFile(item, imageMimeTypes.get(id)).blob : undefined
 }
 
 const wcdbClearStaging = async (): Promise<void> => {
@@ -418,18 +418,73 @@ const wcdbCommitStaging = async (): Promise<SessionSummary[]> => {
 
 /* ------------------------------ 平台分派 ------------------------------ */
 
+// Imported/legacy Android rows may not have MIME metadata. Keep the current
+// session's file types as a fallback without persisting a second copy.
+const imageMimeTypes = new Map<string, string>()
+const savedFileVersions = new Map<string, number>()
+const savedFileListeners = new Map<string, Set<() => void>>()
 const native = Boolean(serviceBridge) || Capacitor.getPlatform() === 'android'
+
+export const getSavedFileVersion = (id: string) => savedFileVersions.get(id) ?? 0
+
+export const subscribeSavedFile = (id: string, listener: () => void) => {
+  const listeners = savedFileListeners.get(id) ?? new Set<() => void>()
+  listeners.add(listener)
+  savedFileListeners.set(id, listeners)
+  return () => {
+    listeners.delete(listener)
+    if (listeners.size === 0) {
+      savedFileListeners.delete(id)
+    }
+  }
+}
+
+const markFilesSaved = (files: StoredFile[]) => {
+  for (const file of files) {
+    savedFileVersions.set(file.id, getSavedFileVersion(file.id) + 1)
+    savedFileListeners.get(file.id)?.forEach((listener) => listener())
+  }
+  // 只为仍在等待写入通知的附件保留版本；已保存历史附件可直接从存储读取。
+  while (savedFileVersions.size > 256) {
+    const oldest = savedFileVersions.keys().next().value
+    if (!oldest || savedFileListeners.has(oldest)) {
+      break
+    }
+    savedFileVersions.delete(oldest)
+  }
+}
 
 export const loadSessionSummaries = native ? wcdbLoadSessionSummaries : idbLoadSessionSummaries
 export const loadSession = native ? wcdbLoadSession : idbLoadSession
-export const saveSession = native ? wcdbSaveSession : idbSaveSession
+const saveStoredSession = native ? wcdbSaveSession : idbSaveSession
+export const saveSession = async (session: Session, files: StoredFile[] = []) => {
+  for (const message of session.messages) {
+    if (message.role === 'user') {
+      for (const file of message.files) {
+        const type = files.find((item) => item.id === file.id)?.blob.type
+        if (type) {imageMimeTypes.set(file.id, type)}
+      }
+    }
+  }
+  if (imageMimeTypes.size > 64) {
+    for (const id of imageMimeTypes.keys()) {
+      if (id !== session.id && !session.messages.some((message) => message.role === 'user' && message.files.some((file) => file.id === id))) {imageMimeTypes.delete(id)}
+    }
+  }
+  await saveStoredSession(session, files)
+  markFilesSaved(files)
+}
 export const renameSession = native ? wcdbRenameSession : idbRenameSession
 const deleteStoredSession = native ? wcdbDeleteSession : idbDeleteSession
 export const deleteSession = async (sessionId: string) => {
   await deleteStoredSession(sessionId)
   clearImageCache()
 }
-export const saveFiles = native ? wcdbSaveFiles : idbSaveFiles
+const saveStoredFiles = native ? wcdbSaveFiles : idbSaveFiles
+export const saveFiles = async (files: StoredFile[]) => {
+  await saveStoredFiles(files)
+  markFilesSaved(files)
+}
 export const loadFile = native ? wcdbLoadFile : idbLoadFile
 export const clearStaging = native ? wcdbClearStaging : idbClearStaging
 export const addStagingSessions = native ? wcdbAddStagingSessions : idbAddStagingSessions
@@ -454,7 +509,31 @@ const clearImageCache = () => {
   imageCacheBytes = 0
 }
 
-export const loadRecentImage = (id: string): Promise<Blob | undefined> => {
+const rememberImage = (id: string, blob: Blob | undefined) => {
+  if (!blob || blob.size > IMAGE_CACHE_BYTES) {
+    return
+  }
+  const previous = imageCache.get(id)
+  if (previous) {
+    imageCache.delete(id)
+    imageCacheBytes -= previous.size
+  }
+  while (imageCache.size >= 16 || imageCacheBytes + blob.size > IMAGE_CACHE_BYTES) {
+    const oldest = imageCache.entries().next().value
+    if (!oldest) {break}
+    imageCache.delete(oldest[0])
+    imageCacheBytes -= oldest[1].size
+  }
+  imageCache.set(id, blob)
+  imageCacheBytes += blob.size
+}
+
+/** 刚发送的图片先进入内存缓存，缩略图和查看器无需等待 WCDB 写入。 */
+export const cacheRecentImage = (id: string, blob: Blob) => rememberImage(id, blob)
+
+/** MIME is supplied by the message metadata for legacy WCDB rows. */
+export const loadRecentImage = (id: string, mimeType?: string): Promise<Blob | undefined> => {
+  if (mimeType) {imageMimeTypes.set(id, mimeType)}
   const cached = imageCache.get(id)
   if (cached) {
     imageCache.delete(id)
@@ -466,16 +545,7 @@ export const loadRecentImage = (id: string): Promise<Blob | undefined> => {
 
   const read = loadFile(id).then((blob) => {
     if (imageReads.get(id) !== read) {return blob}
-    if (blob && blob.size <= IMAGE_CACHE_BYTES) {
-      while (imageCache.size >= 16 || imageCacheBytes + blob.size > IMAGE_CACHE_BYTES) {
-        const oldest = imageCache.entries().next().value
-        if (!oldest) {break}
-        imageCache.delete(oldest[0])
-        imageCacheBytes -= oldest[1].size
-      }
-      imageCache.set(id, blob)
-      imageCacheBytes += blob.size
-    }
+    rememberImage(id, blob)
     return blob
   }).finally(() => { if (imageReads.get(id) === read) {imageReads.delete(id)} })
   imageReads.set(id, read)

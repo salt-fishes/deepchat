@@ -1,5 +1,7 @@
 import clsx from 'clsx'
 import { useEffect, useRef } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { App as CapacitorApp } from '@capacitor/app'
 import { useTranslate } from '../i18n/index.js'
 import { useSettings } from '../services/settings.js'
 import { useIsMobile, useMobileViewport, usePreventPageScroll } from './viewport.js'
@@ -25,13 +27,14 @@ import { onUploadNotice } from '../services/attachments.js'
 import { Button } from '../components/base/Button.js'
 import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
-import { ImageViewer } from '../components/messages/ImageViewer.js'
-import { ImageCropper } from '../components/chatInput/ImageCropper.js'
+import { ImageWorkbench } from '../components/media/ImageWorkbench.js'
+import { LinkViewer } from '../components/messages/LinkViewer.js'
 import { MobileSider, Sider } from '../components/sider/Sider.js'
 import { closeMobileSider, useMobileSider } from '../components/sider/mobileSiderState.js'
 import { registerBackButton } from './backButton.js'
 import styles from './App.module.css'
 import { resumeNativeImport } from '../services/chat/backup.js'
+import { routeNativeIntents } from '../services/nativeIntentRouter.js'
 
 export const App = () => {
   const t = useTranslate()
@@ -88,10 +91,40 @@ export const App = () => {
   useEffect(closeMobileSider, [activeId, isMobile])
 
   useEffect(() => {
-    void resumeNativeImport().catch(() => {}).then(initChat)
+    void resumeNativeImport()
+      .catch(() => {})
+      .then(initChat)
     // 首次打开先在设置里输入 API Key
     ensureApiKey()
   }, [])
+
+  // 桌面快捷方式与系统分享入口：数据库就绪后消费，切回前台再检查一次。
+  useEffect(() => {
+    if (!ready) {
+      return
+    }
+    let active = true
+    const drain = () => {
+      if (active) {
+        void routeNativeIntents()
+      }
+    }
+    drain()
+    window.addEventListener('focus', drain)
+    const listener = Capacitor.isNativePlatform()
+      ? CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) {
+            window.dispatchEvent(new Event('deepchat:resume'))
+            drain()
+          }
+        })
+      : undefined
+    return () => {
+      active = false
+      window.removeEventListener('focus', drain)
+      void listener?.then((handle) => handle.remove())
+    }
+  }, [ready])
 
   // 原生返回键逐层关闭浮层（仅 APK 内注册）
   useEffect(registerBackButton, [])
@@ -174,8 +207,8 @@ export const App = () => {
       <ConversationSearch />
       <SettingsDialog />
       <Toast />
-      <ImageViewer />
-      <ImageCropper />
+      <ImageWorkbench />
+      <LinkViewer />
     </>
   )
 }

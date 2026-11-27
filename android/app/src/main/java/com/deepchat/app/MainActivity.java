@@ -1,5 +1,6 @@
 package com.deepchat.app;
 
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -16,6 +17,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
 
     private Boolean darkWindowTheme;
+    private Intent handledIntent;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -24,13 +26,38 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(HistoryFilePlugin.class);
         registerPlugin(WindowThemePlugin.class);
         registerPlugin(WcdbStoragePlugin.class);
+        registerPlugin(SystemUiPlugin.class);
+        registerPlugin(ExternalLinksPlugin.class);
+        registerPlugin(SharePlugin.class);
+        registerPlugin(AppIntentsPlugin.class);
+        registerPlugin(GenerationPlugin.class);
         super.onCreate(savedInstanceState);
+        // BridgeActivity 初始化时也会调用 onNewIntent；identity/extra 标记避免重复入队。
+        enqueueIntent(getIntent());
         var webView = getBridge().getWebView();
         webView.getSettings().setSupportZoom(false);
         webView.getSettings().setBuiltInZoomControls(false);
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
         EdgeToEdge.enable(this);
         fitWebViewInsideSystemInsets();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (intent == null) return;
+        setIntent(intent);
+        enqueueIntent(intent);
+    }
+
+    private void enqueueIntent(Intent intent) {
+        if (intent == null || intent == handledIntent
+            || intent.getBooleanExtra(AppIntentsPlugin.EXTRA_HANDLED, false)) {
+            return;
+        }
+        handledIntent = intent;
+        intent.putExtra(AppIntentsPlugin.EXTRA_HANDLED, true);
+        AppIntentsPlugin.enqueue(this, intent);
     }
 
     private void fitWebViewInsideSystemInsets() {

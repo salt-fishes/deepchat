@@ -5,6 +5,15 @@ import { IconButton } from '../base/IconButton.js'
 import { showToast } from '../base/toastState.js'
 import { copyText } from '../../utils/clipboard.js'
 
+/** 菜单与浮动工具条共用同一种复制反馈。 */
+export const copyWithFeedback = async (text: string): Promise<boolean> => {
+  if (await copyText(text)) {
+    return true
+  }
+  showToast({ key: 'copyFailed' })
+  return false
+}
+
 /** 复制成功后图标换成对勾 1 秒，期间再次点击不重复复制 */
 export const CopyButton = ({ text }: { text: string }) => {
   const t = useTranslate()
@@ -21,8 +30,7 @@ export const CopyButton = ({ text }: { text: string }) => {
         if (copied) {
           return
         }
-        if (!(await copyText(text))) {
-          showToast({ key: 'copyFailed' })
+        if (!(await copyWithFeedback(text))) {
           return
         }
         setCopied(true)

@@ -1,0 +1,177 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 190px;
+  min-height: 36px;
+  padding: 0 2px 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 14px;
+  text-align: end;
+  cursor: pointer;
+  transition: color var(--motion-feedback) var(--motion-ease-enter);
+}
+
+.trigger:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+.trigger:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--dsw-alias-button-primary-fill);
+  outline-offset: 2px;
+}
+
+.triggerValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trigger svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--settings-arrow);
+}
+
+.dialog {
+  width: 360px;
+  max-width: calc(100% - 32px);
+  padding: 22px 20px 20px;
+}
+
+.headerTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.headerIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-button-primary-fill);
+}
+
+.headerIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 14px;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color var(--ds-transition-duration) var(--ds-ease-in-out),
+    background-color var(--ds-transition-duration) var(--ds-ease-in-out);
+}
+
+.option:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.option:has(input:focus-visible) {
+  outline: 2px solid var(--dsw-alias-button-primary-fill);
+  outline-offset: 2px;
+}
+
+.option:has(input:checked) {
+  border-color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-specific-selector);
+}
+
+.option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.radioMark {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--dsw-alias-border-l2);
+  border-radius: 50%;
+  transition:
+    border-color var(--ds-transition-duration) var(--ds-ease-in-out),
+    transform var(--motion-feedback) var(--motion-ease-enter);
+}
+
+.radioMark::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--dsw-alias-button-primary-fill);
+  transform: scale(0);
+  transition: transform var(--motion-feedback) var(--motion-ease-enter);
+}
+
+.option input:checked + .radioMark {
+  border-color: var(--dsw-alias-button-primary-fill);
+}
+
+.option input:checked + .radioMark::after {
+  transform: scale(1);
+}
+
+.option:active .radioMark {
+  transform: scale(0.94);
+}
+
+.optionLabel {
+  min-width: 0;
+  font-size: 15px;
+  line-height: 22px;
+}
+
+@media not all and (min-width: 768px) {
+  .dialog {
+    width: 380px;
+    padding: 22px 18px 18px;
+  }
+
+  .option {
+    min-height: 54px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger,
+  .option,
+  .radioMark,
+  .radioMark::after {
+    transition: none;
+  }
+}

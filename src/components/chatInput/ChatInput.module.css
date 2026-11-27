@@ -21,7 +21,7 @@
   transition: border-color var(--motion-popup) var(--motion-ease-enter);
 
   &:focus-within {
-    border-color: var(--dsw-alias-button-ghost-active-border);
+    border-color: var(--dsw-alias-border-l2);
   }
 }
 

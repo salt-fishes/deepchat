@@ -2,7 +2,7 @@ import { registerPlugin } from '@capacitor/core'
 import type { StoredFile } from './db.js'
 import { serviceBridge, serviceCall } from './history/serviceBridge.js'
 
-export type WcdbItem = { kind: string; id: string; json?: string; blob?: string }
+export type WcdbItem = { kind: string; id: string; json?: string; blob?: string; mimeType?: string }
 export type WcdbRef = { kind: string; id: string }
 
 type WcdbStoragePlugin = {
@@ -89,16 +89,17 @@ const bytesToBase64 = (bytes: Uint8Array): string => {
   return btoa(binary)
 }
 
-const base64ToBlob = (value: string): Blob =>
-  new Blob([Uint8Array.from(atob(value), (char) => char.charCodeAt(0))])
+const base64ToBlob = (value: string, mimeType: string): Blob =>
+  new Blob([Uint8Array.from(atob(value), (char) => char.charCodeAt(0))], { type: mimeType || 'application/octet-stream' })
 
 export const fileToItem = async (kind: string, file: StoredFile): Promise<WcdbItem> => ({
   kind,
   id: file.id,
   blob: bytesToBase64(new Uint8Array(await file.blob.arrayBuffer())),
+  mimeType: file.blob.type,
 })
 
-export const itemToFile = (item: WcdbItem): StoredFile => ({
+export const itemToFile = (item: WcdbItem, fallbackMimeType = ''): StoredFile => ({
   id: item.id,
-  blob: base64ToBlob(item.blob ?? ''),
+  blob: base64ToBlob(item.blob ?? '', item.mimeType || fallbackMimeType),
 })

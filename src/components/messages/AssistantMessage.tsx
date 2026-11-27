@@ -5,7 +5,15 @@ import { IconRefreshOutline16, IconWarningOutline16 } from '../base/icons.js'
 import { describeReply } from '../../services/chat/describe.js'
 import { canContinueReply } from '../../services/chat/reply.js'
 import { continueReply, regenerateReply, useChatStore } from '../../services/chat/store.js'
-import { describeReadAloudError, stopReadAloud, toggleReadAloud, useAutoReadAloud } from '../../services/speech/readAloud.js'
+import { getVisibleMessages } from '../../services/chat/branches.js'
+import {
+  describeReadAloudError,
+  stopReadAloud,
+  toggleReadAloud,
+  useAutoReadAloud,
+} from '../../services/speech/readAloud.js'
+import { shareText } from '../../services/share.js'
+import { openInAppLink } from '../../services/externalLinks.js'
 import { showToast } from '../base/toastState.js'
 import { useSettings } from '../../services/settings.js'
 import type { AssistantMessage as AssistantMessageType } from '../../services/chat/types.js'
@@ -16,8 +24,19 @@ import { Markdown } from '../markdown/Markdown.js'
 import { SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
 import { ReadAloudButton } from './ReadAloudButton.js'
-import { CopyButton } from './CopyButton.js'
+import { CopyButton, copyWithFeedback } from './CopyButton.js'
 import { ReplyArea } from './ReplyArea.js'
+import { MessageActionMenu } from './MessageActionMenu.js'
+import { SelectionToolbar, type MessageSelection } from './SelectionToolbar.js'
+import { ShareCardDialog } from './ShareCardDialog.js'
+import { UsagePanel } from './UsagePanel.js'
+import { IconShareOutline16, IconUsageOutline16 } from './MessageIcons.js'
+import { requestUserMessageEdit } from './messageGestureEvents.js'
+import {
+  selectMessageText,
+  useMessageGestures,
+  type MessageLongPressDetail,
+} from './useMessageGestures.js'
 import { useReplyView } from './useReplyView.js'
 import {
   BranchSwitcher,
@@ -61,6 +80,79 @@ export const AssistantMessage = memo(function AssistantMessage({
   const copyText = responseText || notice?.text
   const waiting = streaming && view.steps.length === 0 && !view.answer && !message.thinking
   const summaryEntry = `${message.id}-summary`
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [actionMenu, setActionMenu] = useState<MessageLongPressDetail | null>(null)
+  const [selection, setSelection] = useState<MessageSelection | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [usageOpen, setUsageOpen] = useState(false)
+
+  useEffect(() => {
+    setActionMenu(null)
+    setSelection(null)
+  }, [message.id])
+
+  const editPreviousUser = () => {
+    const session = useChatStore.getState().sessionCache[sessionId]
+    if (!session) {
+      return
+    }
+    const directParent = session.messages.find((item) => item.id === message.parentId)
+    let userId = directParent?.role === 'user' ? directParent.id : undefined
+    if (!userId) {
+      const visible = getVisibleMessages(session)
+      const index = visible.findIndex((item) => item.id === message.id)
+      const previous = index > 0 ? visible[index - 1] : undefined
+      if (previous?.role === 'user') {
+        userId = previous.id
+      }
+    }
+    if (!userId) {
+      return
+    }
+    requestUserMessageEdit(sessionId, userId)
+    const target = document.querySelector<HTMLElement>(`[data-prompt-id="${CSS.escape(userId)}"]`)
+    target?.scrollIntoView({
+      block: 'center',
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    })
+  }
+
+  const regenerate = () => {
+    stopReadAloud()
+    regenerateReply(sessionId, message.id)
+  }
+
+  const shareSelection = (text: string) => {
+    void shareText(text, t('shareCardTitle')).catch(() => showToast(t('shareCardFailed')))
+  }
+
+  const gestureProps = useMessageGestures({
+    rootRef,
+    onLongPress: (detail) => {
+      setSelection(null)
+      setActionMenu(detail)
+    },
+    onDoubleClick: (event) => {
+      if (streaming || refused) {
+        return
+      }
+      const block = (event.target as HTMLElement).closest<HTMLElement>('[data-markdown-block]')
+      if (!block || !rootRef.current?.contains(block)) {
+        return
+      }
+      event.preventDefault()
+      const current = window.getSelection()
+      if (!current) {
+        return
+      }
+      const range = document.createRange()
+      range.selectNodeContents(block)
+      current.removeAllRanges()
+      current.addRange(range)
+      setActionMenu(null)
+      setSelection({ text: current.toString(), range: range.cloneRange() })
+    },
+  })
   // 流式刚结束时操作栏淡入一次；历史消息挂载与之后的重渲染不动画
   const [finishedFlash, setFinishedFlash] = useState(false)
   const wasStreamingRef = useRef(false)
@@ -73,17 +165,32 @@ export const AssistantMessage = memo(function AssistantMessage({
       return
     }
     wasStreamingRef.current = false
-    if (message.status === 'done' && answer?.text.trim() && useAutoReadAloud.getState().enabled &&
-        useSettings.getState().apiKey &&
-        useChatStore.getState().activeId === sessionId) {
-      toggleReadAloud(message.id, answer.text, (error) => showToast(describeReadAloudError(error)), true)
+    if (
+      message.status === 'done' &&
+      answer?.text.trim() &&
+      useAutoReadAloud.getState().enabled &&
+      useSettings.getState().apiKey &&
+      useChatStore.getState().activeId === sessionId
+    ) {
+      toggleReadAloud(
+        message.id,
+        answer.text,
+        (error) => showToast(describeReadAloudError(error)),
+        true
+      )
     }
     setFinishedFlash(true)
     const timer = window.setTimeout(() => setFinishedFlash(false), 280)
     return () => window.clearTimeout(timer)
   }, [answer?.text, message.id, message.status, sessionId, streaming])
   return (
-    <div className={clsx(styles.message, entering && styles.entering)} data-reply-id={message.id}>
+    <div
+      {...gestureProps}
+      ref={rootRef}
+      className={clsx(styles.message, entering && styles.entering)}
+      data-reply-id={message.id}
+      data-message-role="assistant"
+    >
       {refused ? null : (
         <ReplyArea
           message={message}
@@ -128,7 +235,7 @@ export const AssistantMessage = memo(function AssistantMessage({
                 <button
                   type="button"
                   className={styles.noticeAction}
-                   onClick={() => openSettings('api')}
+                  onClick={() => openSettings('api')}
                 >
                   {t('changeApiKey')}
                 </button>
@@ -137,14 +244,13 @@ export const AssistantMessage = memo(function AssistantMessage({
             {notice.action === 'topUp' ? (
               <>
                 {' '}
-                <a
+                <button
+                  type="button"
                   className={styles.noticeAction}
-                  href={TOP_UP_URL}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={() => openInAppLink(TOP_UP_URL, t('topUp'))}
                 >
                   {t('topUp')}
-                </a>
+                </button>
               </>
             ) : null}
           </span>
@@ -170,6 +276,17 @@ export const AssistantMessage = memo(function AssistantMessage({
           <div className={clsx(styles.actions, isLast && styles.alwaysShow)}>
             {copyText ? <CopyButton text={copyText} /> : null}
             {responseText && !refused ? (
+              <IconButton
+                icon={<IconShareOutline16 />}
+                tooltip={t('share')}
+                tooltipPlacement="bottom"
+                onClick={() => {
+                  setUsageOpen(false)
+                  setShareOpen(true)
+                }}
+              />
+            ) : null}
+            {responseText && !refused ? (
               <ReadAloudButton messageId={message.id} text={responseText} />
             ) : null}
             <IconButton
@@ -177,11 +294,20 @@ export const AssistantMessage = memo(function AssistantMessage({
               tooltip={t('regenerate')}
               tooltipPlacement="bottom"
               disabled={busy || refused}
-              onClick={() => {
-                stopReadAloud()
-                regenerateReply(sessionId, message.id)
-              }}
+              onClick={regenerate}
             />
+            {isLast && message.usage ? (
+              <IconButton
+                icon={<IconUsageOutline16 />}
+                tooltip={t('usageTitle')}
+                tooltipPlacement="bottom"
+                aria-expanded={usageOpen}
+                onClick={() => {
+                  setShareOpen(false)
+                  setUsageOpen((value) => !value)
+                }}
+              />
+            ) : null}
           </div>
           {isLast && canContinueReply(message) ? (
             <Button
@@ -199,6 +325,46 @@ export const AssistantMessage = memo(function AssistantMessage({
           ) : null}
         </div>
       )}
+      <MessageActionMenu
+        detail={actionMenu}
+        onClose={() => setActionMenu(null)}
+        onCopy={() => {
+          if (copyText) {
+            void copyWithFeedback(copyText)
+          }
+        }}
+        onSelectText={() => {
+          if (actionMenu) {
+            selectMessageText(rootRef.current, actionMenu.target)
+          }
+        }}
+        onEdit={editPreviousUser}
+        onShare={() => {
+          if (responseText) {
+            setUsageOpen(false)
+            setShareOpen(true)
+          } else if (copyText) {
+            shareSelection(copyText)
+          }
+        }}
+        canEdit={!busy}
+      />
+      <SelectionToolbar
+        selection={selection}
+        root={rootRef.current}
+        onClose={() => setSelection(null)}
+        onCopy={(text) => {
+          void copyWithFeedback(text)
+        }}
+        onShare={shareSelection}
+        onRegenerate={() => {
+          setSelection(null)
+          regenerate()
+        }}
+        busy={busy}
+      />
+      <ShareCardDialog open={shareOpen} text={responseText} onClose={() => setShareOpen(false)} />
+      <UsagePanel open={usageOpen} message={message} onClose={() => setUsageOpen(false)} />
     </div>
   )
 })

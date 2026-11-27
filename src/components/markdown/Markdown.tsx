@@ -3,6 +3,7 @@ import type { Source } from '../../services/chat/view.js'
 import { toMdAst } from '../../services/markdown/parse.js'
 import { useScrollToBottom } from '../messages/scrollContext.js'
 import { MarkdownAstRenderer } from './MarkdownAstRenderer.js'
+import { DeferredContent, MathBudgetContext } from './RenderBudget.js'
 import { useStreamingMarkdown } from './useStreamingMarkdown.js'
 import './markdown.css'
 import './highlight.css'
@@ -33,12 +34,16 @@ export const Markdown = memo(function Markdown({
     [displayedMarkdown, sources, disableLink]
   )
   return ast ? (
-    <MarkdownAstRenderer
-      key={cacheKey}
-      className={className}
-      ast={ast}
-      loading={loading}
-      onUpdate={scrollToBottom}
-    />
+    <MathBudgetContext.Provider value={!loading}>
+      <DeferredContent>
+        <MarkdownAstRenderer
+          key={cacheKey}
+          className={className}
+          ast={ast}
+          loading={loading}
+          onUpdate={scrollToBottom}
+        />
+      </DeferredContent>
+    </MathBudgetContext.Provider>
   ) : null
 })

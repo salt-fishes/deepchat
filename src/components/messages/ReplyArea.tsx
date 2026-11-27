@@ -14,6 +14,7 @@ import {
 } from '../base/icons.js'
 import type { AssistantMessage } from '../../services/chat/types.js'
 import { useSettings } from '../../services/settings.js'
+import { openInAppLink } from '../../services/externalLinks.js'
 import {
   getAreaTitle,
   isDeepSearchKind,
@@ -332,7 +333,15 @@ const PageLink = ({ page, failedTip }: { page: PageItem; failedTip?: string }) =
         <span className={styles.pageText}>{page.title}</span>
       </Tooltip>
     ) : (
-      <a className={styles.pageText} href={page.url} target="_blank" rel="noreferrer">
+      <a
+        className={styles.pageText}
+        href={page.url}
+        rel="noreferrer"
+        onClick={(event) => {
+          event.preventDefault()
+          openInAppLink(page.url, page.title)
+        }}
+      >
         {page.title}
       </a>
     )}

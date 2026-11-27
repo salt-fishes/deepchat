@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="pick-images"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_image"
+        android:shortcutShortLabel="@string/shortcut_pick_images"
+        android:shortcutLongLabel="@string/shortcut_pick_images_long">
+        <intent
+            android:action="com.deepchat.app.action.PICK_IMAGES"
+            android:targetClass="com.deepchat.app.MainActivity"
+            android:targetPackage="com.deepchat.app" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="take-photo"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_camera"
+        android:shortcutShortLabel="@string/shortcut_take_photo"
+        android:shortcutLongLabel="@string/shortcut_take_photo_long">
+        <intent
+            android:action="com.deepchat.app.action.TAKE_PHOTO"
+            android:targetClass="com.deepchat.app.MainActivity"
+            android:targetPackage="com.deepchat.app" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="new-chat"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_new_chat"
+        android:shortcutShortLabel="@string/shortcut_new_chat"
+        android:shortcutLongLabel="@string/shortcut_new_chat_long">
+        <intent
+            android:action="com.deepchat.app.action.NEW_CHAT"
+            android:targetClass="com.deepchat.app.MainActivity"
+            android:targetPackage="com.deepchat.app" />
+    </shortcut>
+</shortcuts>

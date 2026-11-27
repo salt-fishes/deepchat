@@ -1,14 +1,30 @@
 import { create } from 'zustand'
 import type { TtsVoice } from './api/speech.js'
 import type { ThinkingEffort } from './api/types.js'
+import { getSystemFontScale } from './haptics.js'
 import { normalizeLocation, type UserLocation } from './location.js'
+import {
+  normalizeChatFontSize,
+  normalizeSystemFontScale,
+  type ChatFontSize,
+} from './settingsModel.js'
+
+export {
+  FONT_SIZE_OFFSETS,
+  FONT_SIZE_STANDARD_STEP,
+  FONT_SIZE_STEPS,
+  chatFontOffset,
+  chatFontSizeAtStep,
+  clampFontSizeStep,
+  fontSizeStep,
+} from './settingsModel.js'
+export type { ChatFontSize, FontSizeStep } from './settingsModel.js'
 
 export type Locale = 'zh-CN' | 'en-US'
+export type LocalePreference = Locale | 'system'
 
 /** 主题偏好；默认跟随系统 */
 export type ThemePreference = 'light' | 'dark' | 'system'
-export type ChatFontSize = 'small' | 'default' | 'large' | 'extraLarge'
-export const chatFontOffset = { small: -2, default: 0, large: 2, extraLarge: 4 } as const
 
 /** 深度思考强度：仅深度思考开启时生效，对应 output_config.effort */
 export type { ThinkingEffort }
@@ -17,6 +33,7 @@ export type { ThinkingEffort }
 type Settings = {
   apiKey: string | null
   locale: Locale
+  localePreference: LocalePreference
   themePreference: ThemePreference
   location: UserLocation | null
   ttsVoice: TtsVoice
@@ -26,11 +43,15 @@ type Settings = {
   search: boolean
   siderCollapsed: boolean
   chatFontSize: ChatFontSize
+  fontFollowSystem: boolean
+  /** 原生系统字体缩放；Web 回退 1，仅供设置预览与消息列表集成读取。 */
+  systemFontScale: number
 }
 
 const KEYS = {
   apiKey: 'chat-demo:api-key',
   locale: 'chat-demo:locale',
+  localePreference: 'chat-demo:locale-preference',
   location: 'chat-demo:location',
   themePreference: 'chat-demo:theme-preference',
   ttsVoice: 'chat-demo:tts-voice',
@@ -40,6 +61,7 @@ const KEYS = {
   search: 'chat-demo:search',
   siderCollapsed: 'chat-demo:sider-collapsed',
   chatFontSize: 'deepchat:chat-font-size',
+  fontFollowSystem: 'deepchat:font-follow-system',
 } as const
 
 const read = (key: string) => {
@@ -66,13 +88,22 @@ const write = (key: string, value: string | null) => {
 export const isChineseBrowser = (): boolean =>
   (typeof navigator === 'undefined' ? 'zh' : navigator.language).toLowerCase().startsWith('zh')
 
-const initialLocale = (): Locale => {
-  const saved = read(KEYS.locale)
-  if (saved === 'zh-CN' || saved === 'en-US') {
+export const resolveSystemLocale = (
+  language = typeof navigator === 'undefined' ? '' : navigator.language
+): Locale => (language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US')
+
+const initialLocalePreference = (): LocalePreference => {
+  const saved = read(KEYS.localePreference)
+  if (saved === 'system' || saved === 'zh-CN' || saved === 'en-US') {
     return saved
   }
-  return isChineseBrowser() ? 'zh-CN' : 'en-US'
+  // 兼容旧版只保存具体语言的存储结构。
+  const legacy = read(KEYS.locale)
+  return legacy === 'zh-CN' || legacy === 'en-US' ? legacy : 'system'
 }
+
+const initialLocale = (preference: LocalePreference): Locale =>
+  preference === 'system' ? resolveSystemLocale() : preference
 
 const initialLocation = (): UserLocation | null => {
   try {
@@ -105,9 +136,13 @@ const initialThinkingEffort = (): ThinkingEffort => {
   return saved === 'low' || saved === 'max' ? saved : 'high'
 }
 
+const initialPreference = initialLocalePreference()
+const initialFontFollowSystem = read(KEYS.fontFollowSystem) === 'true'
+
 export const useSettings = create<Settings>(() => ({
   apiKey: read(KEYS.apiKey),
-  locale: initialLocale(),
+  locale: initialLocale(initialPreference),
+  localePreference: initialPreference,
   location: initialLocation(),
   themePreference: initialThemePreference(),
   ttsVoice: initialTtsVoice(),
@@ -116,11 +151,68 @@ export const useSettings = create<Settings>(() => ({
   compactThinking: read(KEYS.compactThinking) !== 'false',
   search: read(KEYS.search) === 'true',
   siderCollapsed: read(KEYS.siderCollapsed) === 'true',
-  chatFontSize: (() => {
-    const saved = read(KEYS.chatFontSize)
-    return saved === 'small' || saved === 'large' || saved === 'extraLarge' ? saved : 'default'
-  })(),
+  chatFontSize: normalizeChatFontSize(read(KEYS.chatFontSize)),
+  fontFollowSystem: initialFontFollowSystem,
+  systemFontScale: 1,
 }))
+
+/** 系统语言变化时只更新“跟随系统”模式，不覆盖用户固定选择。 */
+export const syncSystemLocale = (
+  language = typeof navigator === 'undefined' ? '' : navigator.language
+): Locale | null => {
+  if (useSettings.getState().localePreference !== 'system') {
+    return null
+  }
+  const locale = resolveSystemLocale(language)
+  if (useSettings.getState().locale !== locale) {
+    useSettings.setState({ locale })
+  }
+  return locale
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('languagechange', () => {
+    syncSystemLocale()
+  })
+}
+
+export const setSystemFontScale = (systemFontScale: number) => {
+  useSettings.setState({ systemFontScale: normalizeSystemFontScale(systemFontScale) })
+}
+
+/** 原生读取系统字体缩放；Web 或插件不可用时由 getSystemFontScale 回退 1。 */
+export const refreshSystemFontScale = async (): Promise<number> => {
+  const systemFontScale = normalizeSystemFontScale(await getSystemFontScale())
+  setSystemFontScale(systemFontScale)
+  return systemFontScale
+}
+
+// 已开启跟随系统时，启动阶段即填充 scale，消息列表无需先打开字体页。
+if (initialFontFollowSystem) {
+  void refreshSystemFontScale()
+}
+
+if (typeof window !== 'undefined') {
+  const refreshFollowSystemFont = () => {
+    if (useSettings.getState().fontFollowSystem) {
+      void refreshSystemFontScale()
+    }
+  }
+  window.addEventListener('deepchat:resume', refreshFollowSystemFont)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      refreshFollowSystemFont()
+    }
+  })
+}
+
+export const setFontFollowSystem = (fontFollowSystem: boolean) => {
+  write(KEYS.fontFollowSystem, String(fontFollowSystem))
+  useSettings.setState({ fontFollowSystem })
+  if (fontFollowSystem) {
+    void refreshSystemFontScale()
+  }
+}
 
 export const setChatFontSize = (chatFontSize: ChatFontSize) => {
   write(KEYS.chatFontSize, chatFontSize)
@@ -131,11 +223,16 @@ type ChatPreferences = Pick<Settings, 'thinking' | 'thinkingEffort' | 'search'>
 export const useChatPreferences = create(() => new Map<string | null, Partial<ChatPreferences>>())
 
 export const setChatPreferences = (id: string | null, patch: Partial<ChatPreferences>) =>
-  useChatPreferences.setState((current) => new Map(current).set(id, { ...current.get(id), ...patch }), true)
+  useChatPreferences.setState(
+    (current) => new Map(current).set(id, { ...current.get(id), ...patch }),
+    true
+  )
 
 export const clearChatPreferences = (id: string | null) => {
   const next = new Map(useChatPreferences.getState())
-  if (next.delete(id)) {useChatPreferences.setState(next, true)}
+  if (next.delete(id)) {
+    useChatPreferences.setState(next, true)
+  }
 }
 
 export const moveChatPreferences = (id: string) => {
@@ -149,13 +246,20 @@ export const moveChatPreferences = (id: string) => {
 }
 
 export const getChatPreferences = (id: string | null): ChatPreferences => ({
-  ...useSettings.getState(), ...useChatPreferences.getState().get(id),
+  ...useSettings.getState(),
+  ...useChatPreferences.getState().get(id),
 })
 
-export const setLocale = (locale: Locale) => {
+export const setLocalePreference = (localePreference: LocalePreference) => {
+  const locale = localePreference === 'system' ? resolveSystemLocale() : localePreference
+  write(KEYS.localePreference, localePreference)
+  // locale 保持具体语言，继续兼容 i18n、App 与其他只读取 locale 的模块。
   write(KEYS.locale, locale)
-  useSettings.setState({ locale })
+  useSettings.setState({ localePreference, locale })
 }
+
+/** 兼容旧调用方；固定语言选择同时更新偏好。 */
+export const setLocale = (locale: Locale) => setLocalePreference(locale)
 
 export const setLocation = (value: UserLocation | null) => {
   const location = normalizeLocation(value)

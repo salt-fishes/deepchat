@@ -45,6 +45,7 @@ public class WcdbStoragePlugin extends Plugin {
         item.put("id", row.id.substring(kind.length() + 1));
         item.put("json", row.json == null ? "" : row.json);
         item.put("blob", row.blob == null ? "" : Base64.encodeToString(row.blob, Base64.NO_WRAP));
+        item.put("mimeType", row.mimeType == null ? "" : row.mimeType);
         return item;
     }
 
@@ -55,6 +56,8 @@ public class WcdbStoragePlugin extends Plugin {
         row.json = json.isEmpty() ? null : json;
         String blob = item.optString("blob");
         row.blob = blob.isEmpty() ? null : Base64.decode(blob, Base64.DEFAULT);
+        String mimeType = item.optString("mimeType");
+        row.mimeType = mimeType.isEmpty() ? null : mimeType;
         return row;
     }
 

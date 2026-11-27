@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useExitPresence } from '../../app/useExitPresence.js'
 import { useAnchoredPosition } from '../base/anchored.js'
@@ -10,16 +10,17 @@ import {
   IconPaperclipOutline16,
   IconPhotoOutline16,
 } from '../base/icons.js'
-import { ACCEPT } from '../../services/attachments.js'
+import { ACCEPT, isImage, resolveMimeType } from '../../services/attachments.js'
 import {
-  getPhotoDataUrl,
   getCachedRecentPhotos,
+  getPhotoFile,
   isMediaGalleryAvailable,
+  pickPhotoFiles,
   refreshRecentPhotos,
-  takePhotoDataUrl,
+  takePhotoFile,
   type RecentPhoto,
 } from '../../services/mediaGallery.js'
-import { openCropper } from './imageCropperState.js'
+import { openImageFile } from '../media/imageWorkbenchState.js'
 import { useTranslate } from '../../i18n/index.js'
 import type { DraftAttachment } from '../../services/chat/drafts.js'
 import { showToast } from '../base/toastState.js'
@@ -29,6 +30,8 @@ import styles from './AttachSheet.module.css'
 const IMAGE_ACCEPT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif']
   .map((ext) => `.${ext}`)
   .join(',')
+
+type PendingAction = 'camera' | 'album' | 'photo' | 'files'
 
 export const AttachSheet = ({
   open,
@@ -57,8 +60,9 @@ export const AttachSheet = ({
   const popoverVisible = useExitPresence(open && !isMobile ? true : null, popoverRef)
   const [photos, setPhotos] = useState<RecentPhoto[]>([])
   const [photosState, setPhotosState] = useState<'loading' | 'ready' | 'unavailable'>('loading')
-  const pendingPhoto = useRef<AbortController | null>(null)
+  const operationRef = useRef(0)
   const [adding, setAdding] = useState(false)
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const { floatingRef, position } = useAnchoredPosition<HTMLButtonElement, HTMLDivElement>(
     !!popoverVisible && !isMobile,
     // 桌面端贴加号上方展开；锚点为外部传入的加号按钮
@@ -78,16 +82,18 @@ export const AttachSheet = ({
     }
   }, [open, isMobile])
 
+  const invalidateOperation = useCallback(() => {
+    operationRef.current++
+  }, [])
+
   useEffect(() => {
     if (!open) {
       setAdding(false)
+      setPendingAction(null)
       return
     }
-    return () => {
-      pendingPhoto.current?.abort()
-      pendingPhoto.current = null
-    }
-  }, [open])
+    return invalidateOperation
+  }, [open, invalidateOperation])
 
   // 首帧使用有效缓存，后台刷新；权限被拒或无照片则整行隐藏。
   useLayoutEffect(() => {
@@ -122,81 +128,157 @@ export const AttachSheet = ({
     return registerOverlayToken(onClose)
   }, [open, onClose])
 
-  const handleFiles = (files: FileList | null) => {
-    const list = Array.from(files ?? [])
-    if (list.length === 0) {
-      return
+  const beginAction = (action: PendingAction): number | null => {
+    if (adding) {
+      return null
     }
-    if (onFiles(list) && !isMobile) {
+    const operation = ++operationRef.current
+    setAdding(true)
+    setPendingAction(action)
+    return operation
+  }
+
+  const finishAction = (operation: number) => {
+    if (operationRef.current === operation) {
+      setAdding(false)
+      setPendingAction(null)
+    }
+  }
+
+  const isActive = (operation: number) => operationRef.current === operation
+
+  /** 图片逐张进入统一工作台；确认的才进入本批，取消的不会添加。 */
+  const reviewFiles = async (files: File[]): Promise<File[]> => {
+    const reviewed: File[] = []
+    for (const file of files) {
+      if (!isImage(resolveMimeType(file))) {
+        reviewed.push(file)
+        continue
+      }
+      const result = await openImageFile(file, 'preview')
+      if (result) {
+        reviewed.push(result)
+      }
+    }
+    return reviewed
+  }
+
+  const commitFiles = (files: File[], recentPhotoId?: string) => {
+    if (files.length > 0 && onFiles(files, recentPhotoId) && !isMobile) {
       onClose()
     }
   }
 
+  const handleFiles = async (fileList: FileList | null) => {
+    const list = Array.from(fileList ?? [])
+    if (list.length === 0) {
+      return
+    }
+    const operation = beginAction('files')
+    if (operation === null) {
+      return
+    }
+    try {
+      const reviewed = await reviewFiles(list)
+      if (isActive(operation)) {
+        commitFiles(reviewed)
+      }
+    } catch {
+      if (isActive(operation)) {
+        showToast({ key: 'attachPhotoUnavailable', type: 'error' })
+      }
+    } finally {
+      finishAction(operation)
+    }
+  }
+
   /**
-   * 拍照：优先原生相机 intent（WebView 的 <input capture> 在 Android 上只弹文件选择器）；
-   * 原生调起失败（无相机应用等）才回退到 WebView 文件选择。
-   * 拍完进入全屏回览/剪裁界面，确认后才加入草稿，取消则丢弃。
+   * 拍照：优先原生相机 intent；原生不可用时回退到 WebView 文件选择。
+   * 拍完进入全屏回览/裁剪界面，确认后才加入草稿，取消则丢弃。
    */
   const takeCameraPhoto = async () => {
-    if (isMediaGalleryAvailable()) {
-      try {
-        const dataUrl = await takePhotoDataUrl()
-        if (!dataUrl) {
-          return
-        }
-        const blob = await (await fetch(dataUrl)).blob()
-        const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' })
-        const result = await openCropper(file, 'preview')
-        if (!result) {
-          return
-        }
-        if (onFiles([result]) && !isMobile) {
-          onClose()
-        }
-        return
-      } catch {
-        // 原生链路不可用：走回退
-      }
+    const operation = beginAction('camera')
+    if (operation === null) {
+      return
     }
-    cameraInputRef.current?.click()
+    try {
+      if (isMediaGalleryAvailable()) {
+        try {
+          const file = await takePhotoFile()
+          if (!isActive(operation)) {
+            return
+          }
+          if (!file) {
+            return
+          }
+          commitFiles(await reviewFiles([file]))
+          return
+        } catch {
+          // 原生链路不可用：走回退
+        }
+      }
+      if (isActive(operation)) {
+        cameraInputRef.current?.click()
+      }
+    } finally {
+      finishAction(operation)
+    }
+  }
+
+  /** API 33+ 优先系统照片选择器；旧版或不支持时回退到多选文件输入。 */
+  const pickAlbumPhotos = async () => {
+    const operation = beginAction('album')
+    if (operation === null) {
+      return
+    }
+    try {
+      if (isMediaGalleryAvailable()) {
+        try {
+          const files = await pickPhotoFiles()
+          if (!isActive(operation)) {
+            return
+          }
+          if (files.length > 0) {
+            commitFiles(await reviewFiles(files))
+          }
+          return
+        } catch {
+          // 原生链路不可用：走回退
+        }
+      }
+      if (isActive(operation)) {
+        galleryInputRef.current?.click()
+      }
+    } finally {
+      finishAction(operation)
+    }
   }
 
   const togglePhoto = async (id: string, attachmentId?: string) => {
-    if (pendingPhoto.current) {
-      return
-    }
     if (attachmentId) {
       onRemove(attachmentId)
       return
     }
-    const controller = new AbortController()
-    pendingPhoto.current = controller
-    setAdding(true)
+    const operation = beginAction('photo')
+    if (operation === null) {
+      return
+    }
     try {
-      const dataUrl = await getPhotoDataUrl(id)
-      if (controller.signal.aborted) {
+      const file = await getPhotoFile(id)
+      if (!isActive(operation)) {
         return
       }
-      if (!dataUrl) {
+      if (!file) {
         showToast({ key: 'attachPhotoUnavailable', type: 'error' })
         return
       }
-      const blob = await (await fetch(dataUrl, { signal: controller.signal })).blob()
-      if (!controller.signal.aborted) {
-        const file = new File([blob], `photo_${id}.jpg`, { type: blob.type || 'image/jpeg' })
-        if (onFiles([file], id) && !isMobile) {
-          onClose()
-        }
-      }
+      commitFiles(await reviewFiles([file]), id)
     } catch {
-      if (!controller.signal.aborted) {
+      if (isActive(operation)) {
         showToast({ key: 'attachPhotoUnavailable', type: 'error' })
       }
     } finally {
-      if (pendingPhoto.current === controller) {
-        pendingPhoto.current = null
-        setAdding(false)
-      }
+      finishAction(operation)
     }
   }
 
@@ -226,21 +308,38 @@ export const AttachSheet = ({
         </div>
       ) : null}
       <div className={styles.cards}>
-        <button type="button" className={styles.card} onClick={() => void takeCameraPhoto()}>
+        <button
+          type="button"
+          className={styles.card}
+          disabled={adding}
+          onClick={() => void takeCameraPhoto()}
+        >
           <IconCameraOutline16 />
-          <span>{t('attachCamera')}</span>
+          <span role={pendingAction === 'camera' ? 'status' : undefined}>
+            {pendingAction === 'camera' ? t('attachProcessing') : t('attachCamera')}
+          </span>
         </button>
         <button
           type="button"
           className={styles.card}
-          onClick={() => galleryInputRef.current?.click()}
+          disabled={adding}
+          onClick={() => void pickAlbumPhotos()}
         >
           <IconPhotoOutline16 />
-          <span>{t('attachAlbum')}</span>
+          <span role={pendingAction === 'album' ? 'status' : undefined}>
+            {pendingAction === 'album' ? t('attachProcessing') : t('attachAlbum')}
+          </span>
         </button>
-        <button type="button" className={styles.card} onClick={() => fileInputRef.current?.click()}>
+        <button
+          type="button"
+          className={styles.card}
+          disabled={adding}
+          onClick={() => fileInputRef.current?.click()}
+        >
           <IconPaperclipOutline16 />
-          <span>{t('attachFiles')}</span>
+          <span role={pendingAction === 'files' ? 'status' : undefined}>
+            {pendingAction === 'files' ? t('attachProcessing') : t('attachFiles')}
+          </span>
         </button>
       </div>
       {/* 三个入口共用校验/上传管线；accept 按入口收窄，真实校验仍由 validateFiles 把关 */}
@@ -289,7 +388,9 @@ export const AttachSheet = ({
         aria-hidden={!open}
       >
         <div className={styles.sheet}>
-          <div className={styles.sheetBody}>{content}</div>
+          <div className={styles.sheetBody} aria-busy={adding}>
+            {content}
+          </div>
         </div>
       </div>
     )
@@ -302,9 +403,12 @@ export const AttachSheet = ({
   // 桌面端：加号上方的锚定浮层
   return createPortal(
     <div
-      ref={(node) => { popoverRef.current = floatingRef.current = node }}
+      ref={(node) => {
+        popoverRef.current = floatingRef.current = node
+      }}
       className={styles.popover}
       data-app-exiting={!open || undefined}
+      aria-busy={adding}
       style={position ?? undefined}
       onClick={(event) => event.stopPropagation()}
     >

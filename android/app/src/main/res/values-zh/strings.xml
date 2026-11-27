@@ -6,4 +6,18 @@
     <string name="history_import_replacing">正在保存聊天记录…</string>
     <string name="history_import_success">已导入 %1$d 条会话</string>
     <string name="history_import_failure">未能导入聊天记录</string>
+    <string name="browser_title">浏览器</string>
+    <string name="browser_open_external">用默认浏览器打开</string>
+    <string name="browser_unavailable">没有可用的浏览器</string>
+    <string name="share_image_title">分享图片</string>
+    <string name="share_text_title">分享文本</string>
+    <string name="generation_channel">后台生成</string>
+    <string name="generation_channel_description">应用退到后台时继续生成回复</string>
+    <string name="generation_opening">正在生成…</string>
+    <string name="shortcut_pick_images">发图提问</string>
+    <string name="shortcut_pick_images_long">选择图片向 AI 提问</string>
+    <string name="shortcut_take_photo">拍照提问</string>
+    <string name="shortcut_take_photo_long">拍摄照片向 AI 提问</string>
+    <string name="shortcut_new_chat">新建对话</string>
+    <string name="shortcut_new_chat_long">开始一段新对话</string>
 </resources>

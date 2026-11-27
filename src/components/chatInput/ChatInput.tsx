@@ -32,7 +32,7 @@ import { showToast } from '../base/toastState.js'
 import { useUploads } from '../../services/attachments.js'
 import { DraftAttachments } from './DraftAttachments.js'
 import { AttachSheet } from './AttachSheet.js'
-import { openCropper } from './imageCropperState.js'
+import { openImageFile } from '../media/imageWorkbenchState.js'
 import { useVoiceInput } from './useVoiceInput.js'
 import { Spectrum } from './Spectrum.js'
 import { useTranslate } from '../../i18n/index.js'
@@ -70,6 +70,11 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const closeSheet = useCallback(() => setSheetOpen(false), [])
   const attachButtonRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const focusComposer = () => textareaRef.current?.focus({ preventScroll: true })
+    window.addEventListener('deepchat:focus-composer', focusComposer)
+    return () => window.removeEventListener('deepchat:focus-composer', focusComposer)
+  }, [])
 
   const acceptFiles = (files: File[], recentPhotoId?: string) => {
     if (files.length === 0 || useChatStore.getState().importingHistory || !ensureApiKey()) {
@@ -116,8 +121,16 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       if (!attachment?.isImage) {
         return
       }
-      const result = await openCropper(attachment.file, mode)
-      if (!result || result === attachment.file) {
+      const result = await openImageFile(attachment.file, mode)
+      if (
+        !result ||
+        result === attachment.file ||
+        useChatStore.getState().importingHistory ||
+        useChatStore.getState().activeId !== sessionId
+      ) {
+        return
+      }
+      if (!ensureApiKey()) {
         return
       }
       const error = replaceDraftAttachment(

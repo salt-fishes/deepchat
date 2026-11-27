@@ -1,6 +1,7 @@
 import type { Image, Link as LinkNode } from 'mdast'
-import { memo, type ReactNode } from 'react'
-import { openImageViewer } from '../messages/imageViewerState.js'
+import { memo, type MouseEvent, type ReactNode } from 'react'
+import { openInAppLink } from '../../services/externalLinks.js'
+import { openImageViewer } from '../media/imageWorkbenchState.js'
 
 const sanitizeUrl = (url: string) => {
   // 如果URL没有协议，添加默认的https协议
@@ -36,11 +37,25 @@ export const Link = memo(function Link({
     return children
   }
 
-  // URL 解析失败时 href 为空，链接文字仍可显示。
+  // URL 解析失败时只显示链接文字。
   const href = sanitizeUrl(node.url)
+  if (!href) {
+    return <span>{children}</span>
+  }
+
+  const open = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    openInAppLink(href, node.title || undefined)
+  }
 
   return (
-    <a href={href} title={node.title || undefined} target="_blank" rel="noreferrer">
+    <a
+      href={href}
+      title={node.title || undefined}
+      rel="noreferrer"
+      onClick={open}
+      onAuxClick={open}
+    >
       {children}
     </a>
   )
@@ -53,11 +68,13 @@ export function MarkdownImage({ node }: { node: Image }) {
   if (!url || !/^https?:\/\//.test(url)) {
     return <span>{name}</span>
   }
+  const open = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    openImageViewer({ src: url, name })
+  }
   return (
-    <a href={url} title={node.title ?? ''} target="_blank" rel="noreferrer" onClick={(event) => {
-      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {return}
-      event.preventDefault()
-      openImageViewer({ src: url, name })
-    }}>{name}</a>
+    <a href={url} title={node.title ?? ''} rel="noreferrer" onClick={open} onAuxClick={open}>
+      {name}
+    </a>
   )
 }

@@ -1,23 +1,28 @@
 import clsx from 'clsx'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { useUploads } from '../../services/attachments.js'
-import { loadFile, loadRecentImage } from '../../services/chat/db.js'
+import { getSavedFileVersion, loadFile, loadRecentImage, subscribeSavedFile } from '../../services/chat/db.js'
 import type { FileAttachment } from '../../services/chat/types.js'
 import { IconPhotoErrorFill20, IconRefreshOutline16 } from '../base/icons.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { FileCard } from '../files/FileCard.js'
-import { openImageViewer } from './imageViewerState.js'
+import { openImageViewer } from '../media/imageWorkbenchState.js'
 import styles from './MessageFile.module.css'
 
 /** 原件从 IndexedDB 读出并生成本地地址；undefined 表示加载中，null 表示原件缺失。 */
-const useFileUrl = (id: string, isImage: boolean) => {
+const useFileUrl = (id: string, isImage: boolean, mimeType: string, retryKey: number) => {
   const [fileUrl, setFileUrl] = useState<{ id: string; url: string | null } | null>(null)
+  const savedVersion = useSyncExternalStore(
+    useCallback((listener) => subscribeSavedFile(id, listener), [id]),
+    useCallback(() => getSavedFileVersion(id), [id])
+  )
   useEffect(() => {
     let objectUrl: string | null = null
     let cancelled = false
-    const load = isImage ? loadRecentImage : loadFile
-    load(id).then((blob) => {
+    setFileUrl(null)
+    const load = isImage ? () => loadRecentImage(id, mimeType) : () => loadFile(id)
+    load().then((blob) => {
       if (!cancelled) {
         objectUrl = blob ? URL.createObjectURL(blob) : null
         setFileUrl({ id, url: objectUrl })
@@ -29,7 +34,7 @@ const useFileUrl = (id: string, isImage: boolean) => {
         URL.revokeObjectURL(objectUrl)
       }
     }
-  }, [id, isImage])
+  }, [id, isImage, mimeType, retryKey, savedVersion])
   return fileUrl?.id === id ? fileUrl.url : undefined
 }
 
@@ -58,9 +63,9 @@ export const MessageFile = ({
   onRetry: (() => void) | null
 }) => {
   const t = useTranslate()
-  const url = useFileUrl(file.id, file.isImage)
-  const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const upload = useUploadState(file)
+  const url = useFileUrl(file.id, file.isImage, file.mimeType, upload?.status === 'error' ? -1 : 0)
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const uploading = upload?.status === 'uploading'
   const failed = upload?.status === 'error'
   const retryable = failed && upload.retryable
@@ -143,7 +148,7 @@ export const MessageFile = ({
         className={clsx(styles.image, styles.imageThumb)}
         title={file.name}
         aria-label={file.name}
-        onClick={() => openImageViewer({ id: file.id, name: file.name })}
+        onClick={() => openImageViewer({ id: file.id, name: file.name, mimeType: file.mimeType })}
       >
         {preview}
       </button>

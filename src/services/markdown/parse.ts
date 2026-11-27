@@ -1,4 +1,4 @@
-import type { Node as MdAstNode, Nodes, Parent, RootContent, Root, Text } from 'mdast'
+import type { Node as MdAstNode, Nodes, Parent, PhrasingContent, RootContent, Root, Text } from 'mdast'
 import { findAndReplace } from 'mdast-util-find-and-replace'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmFromMarkdown } from 'mdast-util-gfm'
@@ -43,6 +43,38 @@ export function toMdAst(
     ],
     mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown()],
   })
+  // CommonMark 会把紧贴中文标点的 **《标题》** 当作普通文本；对残留文本做保守补解析。
+  const applyBoldFallback = (node: Nodes): Nodes[] => {
+    if ('children' in node) {
+      ;(node as Parent).children = node.children.flatMap(applyBoldFallback) as RootContent[]
+    }
+    if (node.type !== 'text' || !node.value.includes('**')) {
+      return [node]
+    }
+    const raw = node.position ? input.slice(node.position.start.offset, node.position.end.offset) : node.value
+    if (raw.includes('\\*\\*')) {
+      return [node]
+    }
+    const result: PhrasingContent[] = []
+    const pattern = /\*\*([^\n]+?)\*\*/g
+    let offset = 0
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(node.value))) {
+      if (match.index > offset) {
+        result.push(text(node.value.slice(offset, match.index)))
+      }
+      result.push({ type: 'strong', children: [text(match[1])] })
+      offset = match.index + match[0].length
+    }
+    if (offset === 0) {
+      return [node]
+    }
+    if (offset < node.value.length) {
+      result.push(text(node.value.slice(offset)))
+    }
+    return result
+  }
+  ast.children = ast.children.flatMap(applyBoldFallback) as RootContent[]
   if (sources) {
     const sourcesByIndex = new Map(sources.map((source) => [source.index, source]))
     findAndReplace(

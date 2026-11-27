@@ -1,11 +1,20 @@
 import clsx from 'clsx'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { createPortal } from 'react-dom'
 import {
   IconArrowLeftOutline16,
   IconDarkOutline16,
   IconDownloadOutline16,
   IconFollowsystemOutline16,
+  IconGlobeLanguageOutline14,
   IconLightOutline16,
   IconLocationOutline16,
   IconUploadOutline14,
@@ -18,7 +27,11 @@ import {
   type HistoryProgress,
 } from '../../services/chat/backup.js'
 import { useIsMobile } from '../../app/viewport.js'
-import { pickBackup, saveBackup, savesHistoryNatively } from '../../services/chat/history/saveBackup.js'
+import {
+  pickBackup,
+  saveBackup,
+  savesHistoryNatively,
+} from '../../services/chat/history/saveBackup.js'
 import { archiveFromFile, type ArchiveSource } from '../../services/chat/history/zipReader.js'
 import { useChatStore } from '../../services/chat/store.js'
 import { regionCodes, getRegionName, provinces, reverseGeocode } from '../../services/location.js'
@@ -26,11 +39,12 @@ import { IconButton } from '../base/IconButton.js'
 import {
   isChineseBrowser,
   setCompactThinking,
-  setLocale,
+  setLocalePreference,
   setLocation,
   setThemePreference,
   setTtsVoice,
   useSettings,
+  type LocalePreference,
   type ThemePreference,
 } from '../../services/settings.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
@@ -39,10 +53,26 @@ import { Modal, registerOverlayToken } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import { showToast } from '../base/toastState.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
-import { closeSettings, navigateSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
+import { SettingsChoice, type SettingsChoiceOption } from './SettingsChoice.js'
+import {
+  closeSettings,
+  navigateSettings,
+  useSettingsDialog,
+  type SettingsSection,
+} from './settingsDialogState.js'
 import { SettingsHome, SettingsGroup, SettingsRow, settingsTitles } from './SettingsHome.js'
-import { ApiActions, FontSettings, PersonalizationDefaults, ReadAloudPreview, UpdateSettings, UsageSettings, SettingsInfo } from './SettingsExtras.js'
-import styles from './Settings.module.css'
+import {
+  ApiActions,
+  FontSettings,
+  PersonalizationDefaults,
+  ReadAloudPreview,
+  UpdateSettings,
+  UsageSettings,
+  SettingsInfo,
+} from './SettingsExtras.js'
+import settingsStyles from './Settings.module.css'
+
+const styles: Record<string, string> = settingsStyles
 
 /**
  * 移动端全屏设置，桌面端使用同样的分组与子页面。
@@ -121,7 +151,13 @@ const SettingsPage = ({
   backRef.current = onBack
   useEffect(() => registerOverlayToken(() => backRef.current()), [])
   return createPortal(
-    <div ref={surfaceRef} role="dialog" aria-modal="true" aria-label={title} className={clsx(styles.page, closing && styles.pageClosing)}>
+    <div
+      ref={surfaceRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className={clsx(styles.page, closing && styles.pageClosing)}
+    >
       <div className={styles.pageTop}>
         <IconButton
           size="m"
@@ -132,7 +168,9 @@ const SettingsPage = ({
           aria-label={t('back')}
           onClick={onBack}
         />
-        <div key={section} className={styles.pageTitle} data-direction={direction ?? undefined}>{title}</div>
+        <div key={section} className={styles.pageTitle} data-direction={direction ?? undefined}>
+          {title}
+        </div>
       </div>
       <div className={clsx(styles.dialogMain, styles.pageMain)}>{children}</div>
     </div>,
@@ -140,7 +178,13 @@ const SettingsPage = ({
   )
 }
 
-const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, historyExport }: {
+const SettingsContent = ({
+  closing,
+  isMobile,
+  surfaceRef,
+  historyImport,
+  historyExport,
+}: {
   closing: boolean
   isMobile: boolean
   surfaceRef: RefObject<HTMLDivElement>
@@ -153,45 +197,71 @@ const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, history
   const apiKeyEditor = useApiKeyEditor()
   const historyDelete = useHistoryDelete()
   const replacingHistory = useChatStore((state) => state.importingHistory)
-  const historyBusy = historyImport.progress !== null || historyExport.progress !== null ||
-    historyDelete.busy || replacingHistory
+  const historyBusy =
+    historyImport.progress !== null ||
+    historyExport.progress !== null ||
+    historyDelete.busy ||
+    replacingHistory
   const back = () => {
-    if (historyDelete.busy) {return}
-    if (section === 'general') {closeSettings()}
-    else {navigateSettings(section === 'usage' ? 'data' : 'general', 'back')}
+    if (historyDelete.busy) {
+      return
+    }
+    if (section === 'general') {
+      closeSettings()
+    } else {
+      navigateSettings(section === 'usage' ? 'data' : 'general', 'back')
+    }
   }
   const title = t(settingsTitles[section])
   const pages: Record<Exclude<SettingsSection, 'general'>, ReactNode> = {
-    api: <>
-      <ApiKeyField editor={apiKeyEditor} />
-      {isMobile ? <ApiKeyConfirm editor={apiKeyEditor} /> : null}
-      <ApiActions key={apiKeyEditor.apiKey} editing={apiKeyEditor.showInput || apiKeyEditor.form.verifying} />
-    </>,
-    data: <>
-            <ImportHistory historyImport={historyImport} disabled={historyBusy} />
-            <ExportHistory historyExport={historyExport} disabled={historyBusy} />
-            <SettingCell
-              label={t('deleteAllSessions')}
-              status={null}
-              action={
-                <Button
-                  variant="dangerOutlined"
-                  size="m"
-                  className={styles.cellButton}
-                  disabled={historyBusy}
-                  onClick={historyDelete.open}
-                >
-                  {t('delete')}
-                </Button>
-              }
-            />
-      <SettingsRow page="usage" />
-    </>,
+    api: (
+      <>
+        <ApiKeyField editor={apiKeyEditor} />
+        {isMobile ? <ApiKeyConfirm editor={apiKeyEditor} /> : null}
+        <ApiActions
+          key={apiKeyEditor.apiKey}
+          editing={apiKeyEditor.showInput || apiKeyEditor.form.verifying}
+        />
+      </>
+    ),
+    data: (
+      <>
+        <ImportHistory historyImport={historyImport} disabled={historyBusy} />
+        <ExportHistory historyExport={historyExport} disabled={historyBusy} />
+        <SettingCell
+          label={t('deleteAllSessions')}
+          status={null}
+          action={
+            <Button
+              variant="dangerOutlined"
+              size="m"
+              className={styles.cellButton}
+              disabled={historyBusy}
+              onClick={historyDelete.open}
+            >
+              {t('delete')}
+            </Button>
+          }
+        />
+        <SettingsRow page="usage" />
+      </>
+    ),
     language: <LocaleSetting />,
     appearance: <ThemeSetting />,
     font: <FontSettings />,
-    personalization: <><CompactThinkingSetting /><PersonalizationDefaults /><LocationSetting /></>,
-    voice: <><TtsVoiceSetting /><ReadAloudPreview /></>,
+    personalization: (
+      <>
+        <CompactThinkingSetting />
+        <PersonalizationDefaults />
+        <LocationSetting />
+      </>
+    ),
+    voice: (
+      <>
+        <TtsVoiceSetting />
+        <ReadAloudPreview />
+      </>
+    ),
     update: <UpdateSettings />,
     terms: <SettingsInfo page="terms" />,
     help: <SettingsInfo page="help" />,
@@ -200,24 +270,48 @@ const SettingsContent = ({ closing, isMobile, surfaceRef, historyImport, history
   const body = (
     <div key={section} className={styles.settingsScroll}>
       <div className={styles.settingsTransition} data-direction={direction ?? undefined}>
-        {section === 'general' ? <SettingsHome /> : section === 'usage' ? pages.usage : <SettingsGroup details>{pages[section]}</SettingsGroup>}
+        {section === 'general' ? (
+          <SettingsHome />
+        ) : section === 'usage' ? (
+          pages.usage
+        ) : (
+          <SettingsGroup details>{pages[section]}</SettingsGroup>
+        )}
       </div>
     </div>
   )
   return (
     <>
       {isMobile ? (
-        <SettingsPage title={title} section={section} direction={direction} closing={closing} surfaceRef={surfaceRef} onBack={back}>
+        <SettingsPage
+          title={title}
+          section={section}
+          direction={direction}
+          closing={closing}
+          surfaceRef={surfaceRef}
+          onBack={back}
+        >
           {body}
         </SettingsPage>
       ) : (
         <Modal
           overlayRef={surfaceRef}
           closing={closing}
-          title={section === 'general' ? title : <span className={styles.desktopTitle}>
-            <IconButton icon={<IconArrowLeftOutline16 />} tone="primary" aria-label={t('back')} onClick={back} />
-            {title}
-          </span>}
+          title={
+            section === 'general' ? (
+              title
+            ) : (
+              <span className={styles.desktopTitle}>
+                <IconButton
+                  icon={<IconArrowLeftOutline16 />}
+                  tone="primary"
+                  aria-label={t('back')}
+                  onClick={back}
+                />
+                {title}
+              </span>
+            )
+          }
           closable
           className={styles.dialog}
           mainClassName={styles.dialogMain}
@@ -415,20 +509,24 @@ const LocationSetting = () => {
 
 const LocaleSetting = () => {
   const t = useTranslate()
-  const locale = useSettings((state) => state.locale)
+  const localePreference = useSettings((state) => state.localePreference)
+  const options: SettingsChoiceOption<LocalePreference>[] = [
+    { value: 'system', label: t('settingsLocaleSystem') },
+    { value: 'zh-CN', label: t('settingsLocaleZhCN'), lang: 'zh-CN' },
+    { value: 'en-US', label: t('settingsLocaleEnUS'), lang: 'en' },
+  ]
   return (
     <SettingCell
       label={t('settingsLocalePreference')}
       status={null}
       action={
-        <Select
-          ariaLabel={t('settingsLocalePreference')}
-          value={locale}
-          options={[
-            { value: 'zh-CN', label: t('settingsLocaleZhCN'), lang: 'zh-CN' },
-            { value: 'en-US', label: t('settingsLocaleEnUS'), lang: 'en' },
-          ]}
-          onChange={setLocale}
+        <SettingsChoice
+          label={t('settingsLocalePreference')}
+          title={t('settingsLocalePreference')}
+          value={localePreference}
+          options={options}
+          icon={<IconGlobeLanguageOutline14 />}
+          onConfirm={setLocalePreference}
         />
       }
     />
@@ -466,7 +564,9 @@ const ImportConfirm = ({
 }) => {
   const t = useTranslate()
   const fileName = useRef('')
-  if (historyImport.file) {fileName.current = historyImport.file.name}
+  if (historyImport.file) {
+    fileName.current = historyImport.file.name
+  }
   return (
     <Modal
       open={!!historyImport.file}
@@ -509,36 +609,32 @@ const themeOptions: { value: ThemePreference; label: TranslationKey; icon: React
 ]
 
 /**
- * 主题项：左侧标题，右侧浅色 / 深色 / 跟随系统三个并排小图标（与其他设置行一致）。
+ * 主题项：点击打开单选确认，确认后才应用，避免误触立即切换全局主题。
  */
 const ThemeSetting = () => {
   const t = useTranslate()
   const themePreference = useSettings((state) => state.themePreference)
-  const label = t('avatarMenuSettingsDialogThemeItemLabel')
+  const label = t('settingsAppearance')
+  const options: SettingsChoiceOption<ThemePreference>[] = themeOptions.map(
+    ({ value, label: key }) => ({
+      value,
+      label: t(key),
+    })
+  )
+  const icon = themeOptions.find((option) => option.value === themePreference)?.icon
   return (
     <SettingCell
       label={label}
       status={null}
       action={
-        <div role="radiogroup" aria-label={label} className={styles.themeOptions}>
-          {themeOptions.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={themePreference === option.value}
-              aria-label={t(option.label)}
-              title={t(option.label)}
-              className={clsx(
-                styles.themeOption,
-                themePreference === option.value && styles.themeOptionSelected
-              )}
-              onClick={() => setThemePreference(option.value)}
-            >
-              {option.icon}
-            </button>
-          ))}
-        </div>
+        <SettingsChoice
+          label={label}
+          title={label}
+          value={themePreference}
+          options={options}
+          icon={icon}
+          onConfirm={setThemePreference}
+        />
       }
     />
   )
@@ -598,9 +694,15 @@ const SettingCell = ({
     <div className={clsx(styles.cell, styles.row, className)}>
       <div className={styles.text}>
         <div className={styles.label}>{label}</div>
-        {progress ? <HistoryProgressBar progress={progress} /> : status || description ? (
+        {progress ? (
+          <HistoryProgressBar progress={progress} />
+        ) : status || description ? (
           <div
-            className={clsx(styles.description, status && styles.statusIn, status?.error && styles.error)}
+            className={clsx(
+              styles.description,
+              status && styles.statusIn,
+              status?.error && styles.error
+            )}
             role={status ? 'status' : undefined}
           >
             {status
@@ -779,7 +881,9 @@ const useHistoryExport = () => {
       const { name, blob } = await exportHistory(setProgress)
       if (savesHistoryNatively()) {
         setProgress({ phase: 'choosing' })
-        const saved = await saveBackup(name, blob, (percent) => setProgress({ phase: 'saving', percent }))
+        const saved = await saveBackup(name, blob, (percent) =>
+          setProgress({ phase: 'saving', percent })
+        )
         setStatus({ key: saved ? 'historySaved' : 'historySaveCancelled' })
         return
       }
@@ -801,7 +905,10 @@ const useHistoryExport = () => {
 }
 
 /** 将全部会话及图片导出为 ZIP 文件并下载 */
-const ExportHistory = ({ historyExport, disabled }: {
+const ExportHistory = ({
+  historyExport,
+  disabled,
+}: {
   historyExport: ReturnType<typeof useHistoryExport>
   disabled: boolean
 }) => {

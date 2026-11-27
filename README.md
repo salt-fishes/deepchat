@@ -1,37 +1,53 @@
-# deepchat
+<div align="center">
+  <h1>deepchat</h1>
+  <p><strong>An independent, open-source DeepSeek API client for Web and Android.</strong><br>
+  No separate backend · Bring your own API key · Local-first conversations</p>
+  <p>
+    <img src="https://img.shields.io/badge/Independent-Open%20Source-2ea44f?style=flat-square" alt="Independent open-source project">
+    <img src="https://img.shields.io/github/v/release/salt-fishes/deepchat?style=flat-square" alt="Latest GitHub release">
+    <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="MIT license">
+    <img src="https://img.shields.io/badge/Platform-Web%20%7C%20Android-lightgrey?style=flat-square" alt="Web and Android">
+    <img src="https://img.shields.io/badge/API%20Key-BYOK-4D6BFE?style=flat-square" alt="Bring your own API key">
+  </p>
+  <p>
+    <a href="https://salt-fishes.github.io/deepchat/" style="display:inline-block;padding:10px 18px;margin:4px;border-radius:8px;background:#4D6BFE;color:#fff;text-decoration:none;font-weight:600;">Open web app</a>
+    <a href="https://github.com/salt-fishes/deepchat/releases/latest" style="display:inline-block;padding:10px 18px;margin:4px;border-radius:8px;background:#24292f;color:#fff;text-decoration:none;font-weight:600;">Download Android</a>
+    <a href="https://github.com/salt-fishes/deepchat" style="display:inline-block;padding:10px 18px;margin:4px;border-radius:8px;background:#24292f;color:#fff;text-decoration:none;font-weight:600;">Source code</a>
+  </p>
+  <p><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a> · <a href="https://github.com/salt-fishes/deepchat/issues">Report an issue</a></p>
+</div>
 
-English · [简体中文](README.zh-CN.md)
+The Android app closely recreates the look and feel of the original DeepSeek app.
 
-deepchat is an independent, open-source chat client for the [DeepSeek API](https://platform.deepseek.com/). It runs on the web and Android without a separate backend. Bring your own API key.
+## Quick Start
 
-The Android version closely recreates the look and feel of the original DeepSeek app.
+1. **Open deepchat** on the [web](https://salt-fishes.github.io/deepchat/) or install the [Android APK](https://github.com/salt-fishes/deepchat/releases/latest). See [Downloads](#downloads) for package and installation details.
+2. **Add your API key.** Open **Settings → Account management**, enter your [DeepSeek API](https://platform.deepseek.com/) key, and save it. The app validates the key before saving.
+3. **Start chatting.** The same Account management page can test the connection, remove the saved key, and refresh your official DeepSeek balance: total, top-up, and granted balances in the currency reported by DeepSeek.
 
-[Open the web app](https://salt-fishes.github.io/deepchat/) · [Download for Android](https://github.com/salt-fishes/deepchat/releases/latest) · [Report an issue](https://github.com/salt-fishes/deepchat/issues)
+## Features
 
-## Getting started
+| Capability           | Highlights                                                                                                                                                                                                                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Chat**             | Manage conversations, search history, edit prompts, regenerate replies, switch branches, stop generation, and continue eligible replies. Streamed responses support Markdown, code highlighting, KaTeX, and Mermaid.                                                                   |
+| **Think and search** | Choose from three thinking effort levels, search the web, read links, and view source citations. **Settings → Personalization** controls thinking collapse and default thinking/search options. Composer changes apply only to the current conversation while the app is open.         |
+| **Files and voice**  | Upload, paste, or drag attachments. Android also supports taking and cropping photos. Press and hold an empty input to dictate, or have replies read aloud. Voice previews use the speech API and may incur charges.                                                                   |
+| **Personalization**  | English and Simplified Chinese, light/dark/system appearance, and chat text sizing independent of the interface. Android supports a swipe gesture for the conversation list and respects reduced-motion preferences.                                                                   |
+| **Data and usage**   | Import/export ZIP backups and clear chats under **Settings → Data**. **Usage statistics** shows local chat request counts and reported input/output tokens for today, the last 7 days, or the last 30 days. Counting starts with this version and is not a platform billing statement. |
+| **Updates**          | Settings checks this repository’s latest stable GitHub Release, shows release notes, and links to the APK when available. Updates are never installed automatically.                                                                                                                   |
 
-Open the web app, or download `deepchat-release-signed.apk` from GitHub Releases. The Android APK is self-signed; Android may ask you to allow installation from that source. If upgrading from the old `com.example.chatdemo` package, back up your history before uninstalling it. Current builds use `com.deepchat.app`.
+## Downloads
 
-Open **Settings → Account management**, enter a DeepSeek API key and save it. The app validates the key before saving. The same page lets you test the connection, remove the saved key, and refresh your official DeepSeek balance (total, top-up and granted balance in the currency reported by DeepSeek).
+| Platform    | Get it                                                                                                                                                                                 | Notes                                                                                                                                                          |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Web**     | [Open the web app](https://salt-fishes.github.io/deepchat/) or download the web bundle from [GitHub Releases](https://github.com/salt-fishes/deepchat/releases/latest) when available. | Serve the bundle over HTTP(S). Opening `index.html` directly through `file://` requires browser storage and cross-origin API requests to work in that context. |
+| **Android** | Download `deepchat-release-signed.apk` from [GitHub Releases](https://github.com/salt-fishes/deepchat/releases/latest).                                                                | Current package ID: `com.deepchat.app`. The APK is self-signed, so Android may ask you to allow installation from that source.                                 |
 
-## What you can do
+If you are upgrading from the old `com.example.chatdemo` package, **back up your history before uninstalling it**. Current builds use `com.deepchat.app`.
 
-- **Chat:** manage conversations, search history, edit prompts, regenerate replies, switch branches, stop generation and continue eligible replies. Replies stream with Markdown, highlighted code, KaTeX and Mermaid support.
-- **Think and search:** choose from three thinking effort levels, search the web, read links and view source citations. Under **Settings → Personalization**, choose whether to collapse thinking and set defaults for thinking effort and web search. Changes made in the composer stay in the current conversation while the app is open.
-- **Use files and voice:** upload, paste or drag attachments; on Android you can also take or crop photos. Press and hold an empty input to dictate, or have replies read aloud. You can preview the available voices in Settings; previews use the speech API and may incur charges.
-- **Make it yours:** choose English or Simplified Chinese, use light, dark or system appearance, and change chat text size without scaling the interface. Android supports a swipe gesture for opening the conversation list; the interface respects reduced-motion preferences.
-- **Manage data:** import or export ZIP backups and clear chats under **Settings → Data**. **Usage statistics** shows local chat request counts and reported input/output tokens for today, the last 7 days or the last 30 days. It starts counting with this version and is not a platform billing statement.
-- **Check for updates:** Settings checks this repository’s latest stable GitHub Release, shows release notes and links to the APK when available. It never installs an update automatically.
+## Development
 
-## Data and privacy
-
-The API key and preferences are stored in `localStorage` on the device. Web conversations and original attachments use IndexedDB; Android conversation storage uses native WCDB. The separate local usage database uses IndexedDB and contains daily totals, not message text or keys. Chat, attachments and speech send the relevant content to the configured API service; official balance checks contact DeepSeek directly.
-
-Import validates the archive and asks for confirmation before **replacing** local history. Exports include conversations and locally available original images, but not keys, settings, usage statistics or original non-image attachments. Clearing chats removes local conversations, attachments and unsent drafts and stops active replies. It does not remove your settings, usage statistics or files already uploaded to the API. See the [ZIP format notes](src/services/chat/history/README.md).
-
-## Build from source
-
-With Node.js 22.12+ and pnpm:
+Requirements: **Node.js 24+** and **pnpm**.
 
 ```sh
 git clone https://github.com/salt-fishes/deepchat.git
@@ -40,16 +56,67 @@ pnpm install
 pnpm dev
 ```
 
-The development server runs at <http://localhost:8090>. `pnpm build` writes the static web app to `dist/`. You can also download the web bundle from Releases when available. Serve it over HTTP(S); opening `index.html` directly requires browser storage and cross-origin API requests to work from `file://`.
+The development server runs at <http://localhost:8090>. `pnpm build` writes the static web app to `dist/`; you can also download the web bundle from Releases when available.
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm apk` | Build and sync the web assets, then build an Android debug APK on Windows. See [Android build notes](ANDROID.md). |
-| `pnpm type` | Run TypeScript checks. |
-| `pnpm lint` | Run oxlint. |
-| `pnpm format` | Format the source with oxfmt. |
+| Command       | Purpose                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`    | Start the development server on port 8090.                                                                    |
+| `pnpm build`  | Build the static web app into `dist/`.                                                                        |
+| `pnpm test`   | Run the script test suite.                                                                                    |
+| `pnpm apk`    | Build and sync web assets, then build an Android debug APK on Windows. See [Android build notes](ANDROID.md). |
+| `pnpm type`   | Run TypeScript checks.                                                                                        |
+| `pnpm lint`   | Run oxlint.                                                                                                   |
+| `pnpm format` | Format the source with oxfmt.                                                                                 |
 
-[rspack.config.ts](rspack.config.ts) defaults to `https://api.deepseek.com` and supports a build-time `apiOrigin` override. Chat uses `deepseek-flash` through the Anthropic-compatible Messages and Files endpoints; search, link reading, automatic titles and `latest_reminder` require DeepSeek’s extensions. Speech uses the ASR and TTS endpoints. Balance lookup always uses DeepSeek’s official endpoint.
+### API configuration
+
+[rspack.config.ts](rspack.config.ts) defaults to `https://api.deepseek.com` and supports a build-time `apiOrigin` override.
+
+| Area                      | Endpoint / behavior                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Chat**                  | Uses `deepseek-flash` through Anthropic-compatible `POST /anthropic/v1/messages`.                                 |
+| **Files**                 | Uses `POST /anthropic/v1/files`.                                                                                  |
+| **Search and extensions** | Web search, link reading, automatic titles, and the `latest_reminder` message role require DeepSeek’s extensions. |
+| **Speech**                | ASR uses `POST /v1/tools/asr`; TTS uses `POST /v1/tools/tts`.                                                     |
+| **Balance**               | Always uses DeepSeek’s official `GET https://api.deepseek.com/user/balance` endpoint.                             |
+
+### Release tooling
+
+Use these commands for the release workflow:
+
+| Command                | Purpose                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| `pnpm release:check`   | Validate release version consistency and readiness.                                         |
+| `pnpm apk:release`     | Build the signed Android Release APK.                                                       |
+| `pnpm release:package` | Package `deepchat-release-signed.apk`, the web ZIP, checksums, release notes, and manifest. |
+
+See [RELEASE.md](RELEASE.md) for the release process and [CHANGELOG.md](CHANGELOG.md) for version history.
+
+## Privacy and data
+
+| Data                                           | Storage                                                                                |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **API key and preferences**                    | `localStorage` on the device.                                                          |
+| **Web conversations and original attachments** | IndexedDB.                                                                             |
+| **Android conversations**                      | Native WCDB.                                                                           |
+| **Usage statistics**                           | A separate local IndexedDB database containing daily totals, not message text or keys. |
+
+Chat, attachments, and speech send the relevant content to the configured API service. Official balance checks contact DeepSeek directly.
+
+## Backups and deletion
+
+- **Import:** deepchat validates the ZIP archive and asks for confirmation before **replacing** local history.
+- **Export:** includes conversations and locally available original images. It excludes API keys, settings, usage statistics, and original non-image attachments.
+- **Clear chats:** under **Settings → Data**, removes local conversations, attachments, and unsent drafts, and stops active replies. It does not remove settings, usage statistics, or files already uploaded to the API.
+
+See the [ZIP format notes](src/services/chat/history/README.md) for archive details.
+
+## Known limitations
+
+- A DeepSeek API key is required. Web search, link reading, automatic titles, and `latest_reminder` depend on DeepSeek’s service extensions.
+- ZIP backups are not full device or account snapshots: keys, settings, usage statistics, and original non-image attachments are not included.
+- Hosting over `file://` may require special browser storage and cross-origin API permissions; HTTP(S) hosting is recommended.
+- Android release APKs are self-signed for direct distribution, not Google Play App Signing builds. The `pnpm apk` helper uses `gradlew.bat` and is Windows-only.
 
 ## License
 

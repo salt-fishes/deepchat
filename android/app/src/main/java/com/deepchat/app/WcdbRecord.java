@@ -18,6 +18,9 @@ public class WcdbRecord {
     @WCDBField
     public byte[] blob;
 
+    @WCDBField
+    public String mimeType;
+
     public WcdbRecord() {}
 }
 

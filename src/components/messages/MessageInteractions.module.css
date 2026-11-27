@@ -1,0 +1,406 @@
+.sourceCard {
+  cursor: default;
+}
+
+.sourceCardButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  margin-top: 12px;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-brand-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.sourceCardButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.citationPreview {
+  position: fixed;
+  z-index: 950;
+  box-sizing: border-box;
+  width: min(355px, calc(100vw - 16px));
+  max-height: min(420px, calc(100dvh - 16px));
+  padding: 16px;
+  overflow: auto;
+  border: 1px solid var(--dsw-alias-border-inverted);
+  border-radius: 12px;
+  background: var(--dsw-specific-menu);
+  box-shadow: var(--dsw-shadow-lv3);
+  animation: hovercard-in 0.12s ease-out;
+}
+
+@keyframes hovercard-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheetOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+    var(--safe-area-inset-right, env(safe-area-inset-right, 0px))
+    max(12px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))
+    var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  background: rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(2px);
+  animation: sheet-overlay-in var(--motion-popup) var(--motion-ease-enter);
+}
+
+[data-ds-dark-theme] .sheetOverlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.sheetOverlay[data-app-exiting] {
+  pointer-events: none;
+  animation: sheet-overlay-in var(--motion-feedback) var(--motion-ease-exit) reverse forwards;
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(520px, 100%);
+  max-height: min(90dvh, 900px);
+  padding: 10px 22px max(20px, env(safe-area-inset-bottom, 0px));
+  border: 1px solid var(--dsw-alias-border-inverted);
+  border-radius: 24px 24px 18px 18px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  box-shadow: var(--dsw-shadow-lv3);
+  animation: sheet-in var(--motion-panel) var(--motion-ease-enter);
+}
+
+.sheetOverlay[data-app-exiting] .sheet {
+  animation: sheet-in var(--motion-feedback) var(--motion-ease-exit) reverse forwards;
+}
+
+.sheetHandle {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 8px;
+  border-radius: 999px;
+  background: var(--dsw-alias-border-l3);
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+.sheetTitle {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheetBody {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.sheetFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+}
+
+@keyframes sheet-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.actionMenu {
+  position: fixed;
+  z-index: 1600;
+  box-sizing: border-box;
+  width: 216px;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+  border: 1px solid var(--dsw-alias-border-inverted);
+  border-radius: 14px;
+  background: var(--dsw-specific-menu);
+  box-shadow: var(--dsw-shadow-lv3);
+  animation: hovercard-in 0.12s ease-out;
+}
+
+.menuButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuButton:hover:not(:disabled),
+.menuButton:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover);
+  outline: none;
+}
+
+.menuButton:disabled {
+  color: var(--dsw-alias-label-caption);
+  cursor: default;
+}
+
+.menuIcon {
+  display: grid;
+  flex: 0 0 20px;
+  place-items: center;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.selectionToolbar {
+  position: fixed;
+  z-index: 1700;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--dsw-alias-border-inverted);
+  border-radius: 999px;
+  background: var(--dsw-specific-menu);
+  box-shadow: var(--dsw-shadow-lv3);
+  animation: hovercard-in 0.1s ease-out;
+}
+
+.selectionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.selectionButton:hover:not(:disabled),
+.selectionButton:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover);
+  outline: none;
+}
+
+.selectionButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.usageTotal {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0 4px;
+}
+
+.usageTotalLabel {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 14px;
+}
+
+.usageTotalValue {
+  font-size: 30px;
+  line-height: 38px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.usagePeriod {
+  width: fit-content;
+  margin: 4px 0 18px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--dsw-alias-markdown-placeholder);
+  color: var(--dsw-alias-brand-text);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.usageTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.usageTable th,
+.usageTable td {
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--dsw-alias-border-l3);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.usageTable th {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.usageTable th:first-child,
+.usageTable td:first-child {
+  padding-left: 0;
+  text-align: left;
+  white-space: normal;
+}
+
+.usageTable th:last-child,
+.usageTable td:last-child {
+  padding-right: 0;
+}
+
+.usageSection td {
+  padding-top: 15px;
+  padding-bottom: 5px;
+  border-bottom: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-weight: 500;
+}
+
+.usageRowLabel {
+  color: var(--dsw-alias-label-primary);
+}
+
+.usageContext {
+  margin-top: 18px;
+}
+
+.usageContextText {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.usageContextTrack {
+  height: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--dsw-alias-border-l3);
+}
+
+.usageContextFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dsw-alias-brand-primary);
+}
+
+.usageDisclaimer,
+.usageUnavailable {
+  margin-top: 16px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.usageUnavailable {
+  padding: 28px 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 14px;
+  text-align: center;
+}
+
+.sharePreview {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  padding: 4px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.shareImage {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 52dvh;
+  object-fit: contain;
+  border-radius: 9px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.shareStatus,
+.shareError {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 16px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 14px;
+  text-align: center;
+}
+
+.shareSpinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--dsw-alias-border-l3);
+  border-top-color: var(--dsw-alias-brand-primary);
+  border-radius: 50%;
+  animation: share-spin 0.8s linear infinite;
+}
+
+@keyframes share-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

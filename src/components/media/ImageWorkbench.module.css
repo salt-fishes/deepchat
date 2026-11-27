@@ -1,0 +1,473 @@
+/* 单一图片工作台：查看与裁剪共用全屏层、安全区和退场动画。 */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  outline: none;
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  padding-bottom: max(16px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  animation: workbench-in var(--motion-panel) var(--motion-ease-enter);
+}
+
+.overlay[data-app-exiting] {
+  animation: workbench-in var(--motion-popup) var(--motion-ease-exit) reverse forwards;
+}
+
+@keyframes workbench-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.topBar {
+  display: flex;
+  flex: 0 0 64px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.topButton {
+  display: grid;
+  flex: 0 0 48px;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-feedback) var(--motion-ease-enter),
+    scale var(--motion-feedback) var(--motion-ease-enter);
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+  &:active:not(:disabled) {
+    scale: 0.94;
+    background: rgba(255, 255, 255, 0.12);
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+.cropStage {
+  display: block;
+}
+
+.viewImage {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: zoom-in;
+  user-select: none;
+  touch-action: none;
+  transition: transform var(--motion-popup) var(--motion-ease-enter);
+  animation: var(--motion-pop-enter) var(--motion-panel) var(--motion-ease-enter);
+}
+
+.viewImage.zoomed {
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+    transition: none;
+  }
+}
+
+.cropImage {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  transition: rotate var(--motion-popup) var(--motion-ease-enter);
+}
+
+.cropFrame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  cursor: grab;
+  transition:
+    left var(--motion-popup) var(--motion-ease-enter),
+    top var(--motion-popup) var(--motion-ease-enter),
+    width var(--motion-popup) var(--motion-ease-enter),
+    height var(--motion-popup) var(--motion-ease-enter);
+}
+
+.cropStage[data-crop-manipulating] .cropFrame {
+  cursor: grabbing;
+  transition: none;
+}
+
+.cropFrame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 33.3%,
+      rgba(255, 255, 255, 0.24) 33.3%,
+      rgba(255, 255, 255, 0.24) 33.4%,
+      transparent 33.4%,
+      transparent 66.6%,
+      rgba(255, 255, 255, 0.24) 66.6%,
+      rgba(255, 255, 255, 0.24) 66.7%,
+      transparent 66.7%
+    ),
+    linear-gradient(
+      to bottom,
+      transparent 33.3%,
+      rgba(255, 255, 255, 0.24) 33.3%,
+      rgba(255, 255, 255, 0.24) 33.4%,
+      transparent 33.4%,
+      transparent 66.6%,
+      rgba(255, 255, 255, 0.24) 66.6%,
+      rgba(255, 255, 255, 0.24) 66.7%,
+      transparent 66.7%
+    );
+}
+
+.corner {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border: 0;
+}
+
+.corner::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #fff;
+}
+
+.cornerTL {
+  top: -2px;
+  left: -2px;
+  cursor: nwse-resize;
+}
+
+.cornerTL::after {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.cornerTR {
+  top: -2px;
+  right: -2px;
+  cursor: nesw-resize;
+}
+
+.cornerTR::after {
+  top: 0;
+  right: 0;
+  border-bottom: 0;
+  border-left: 0;
+}
+
+.cornerBL {
+  bottom: -2px;
+  left: -2px;
+  cursor: nesw-resize;
+}
+
+.cornerBL::after {
+  bottom: 0;
+  left: 0;
+  border-top: 0;
+  border-right: 0;
+}
+
+.cornerBR {
+  right: -2px;
+  bottom: -2px;
+  cursor: nwse-resize;
+}
+
+.cornerBR::after {
+  right: 0;
+  bottom: 0;
+  border-top: 0;
+  border-left: 0;
+}
+
+.errorNotice {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 2;
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(176, 42, 42, 0.92);
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.processing {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.48);
+  color: #fff;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.processingSpinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(255, 255, 255, 0.28);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: workbench-spin 0.8s linear infinite;
+}
+
+.failed {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  color: #bbb;
+}
+
+.loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  color: #ddd;
+  font-size: 14px;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+
+.loadingSpinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: workbench-spin 0.8s linear infinite;
+}
+
+@keyframes workbench-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.actions {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px max(18px, env(safe-area-inset-right, 0px)) 4px
+    max(18px, env(safe-area-inset-left, 0px));
+}
+
+.actionButton {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #2d2d2d;
+  color: #fff;
+  cursor: pointer;
+  transition: scale var(--motion-feedback) var(--motion-ease-enter);
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+  &:active:not(:disabled) {
+    scale: 0.94;
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.closeButton {
+  width: 48px;
+  margin-right: auto;
+}
+
+.cropHint {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.cropBottom {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px 4px;
+}
+
+.aspects {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.aspects::-webkit-scrollbar {
+  display: none;
+}
+
+.aspect {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-feedback) var(--motion-ease-enter),
+    color var(--motion-feedback) var(--motion-ease-enter),
+    scale var(--motion-feedback) var(--motion-ease-enter);
+
+  &:active {
+    scale: 0.96;
+  }
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+.aspectActive {
+  background: #fff;
+  color: #111;
+}
+
+.confirm {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--dsw-alias-brand-primary);
+  cursor: pointer;
+  transition: scale var(--motion-feedback) var(--motion-ease-enter);
+
+  svg {
+    width: 28px;
+    height: 28px;
+  }
+  &:active:not(:disabled) {
+    scale: 0.94;
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.previewBottom {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 12px 16px 4px;
+}
+
+.askConfirm {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #5875dc;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: scale var(--motion-feedback) var(--motion-ease-enter);
+
+  &:active:not(:disabled) {
+    scale: 0.98;
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cropImage,
+  .cropFrame,
+  .viewImage,
+  .confirm,
+  .askConfirm,
+  .aspect {
+    transition: none !important;
+    animation: none !important;
+  }
+}

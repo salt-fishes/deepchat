@@ -10,4 +10,18 @@
     <string name="history_import_replacing">Saving chat history…</string>
     <string name="history_import_success">Imported %1$d chats</string>
     <string name="history_import_failure">Chat history could not be imported</string>
+    <string name="browser_title">Browser</string>
+    <string name="browser_open_external">Open in default browser</string>
+    <string name="browser_unavailable">No browser is available</string>
+    <string name="share_image_title">Share image</string>
+    <string name="share_text_title">Share text</string>
+    <string name="generation_channel">Background generation</string>
+    <string name="generation_channel_description">Keeps generation running while the app is in the background</string>
+    <string name="generation_opening">Generating…</string>
+    <string name="shortcut_pick_images">Ask about images</string>
+    <string name="shortcut_pick_images_long">Pick images to ask about</string>
+    <string name="shortcut_take_photo">Take a photo</string>
+    <string name="shortcut_take_photo_long">Take a photo to ask about</string>
+    <string name="shortcut_new_chat">New chat</string>
+    <string name="shortcut_new_chat_long">Start a new conversation</string>
 </resources>

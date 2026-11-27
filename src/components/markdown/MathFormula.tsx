@@ -1,67 +1,80 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { ensureKatex, type Katex } from '../../services/markdown/katex.js'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { scheduleIdle } from '../../app/idleWork.js'
+import { scheduleMath } from './mathQueue.js'
 
-/** renderToString 外层包裹的标签，组件自己渲染外层，这里切掉 */
-const KATEX_WRAPPER = {
-  inline: ['<span class="katex">', '</span>'],
-  display: ['<span class="katex-display"><span class="katex">', '</span></span>'],
-} as const
-
-type MathHtmlResult = {
-  html: string
-  renderMode: 'katex' | 'fallback'
+const rendered = new Map<string, string>()
+const limit = 600
+const cache = (key: string, value: string) => {
+  if (rendered.size >= limit) {
+    const oldest = rendered.keys().next().value
+    if (oldest !== undefined) {rendered.delete(oldest)}
+  }
+  rendered.delete(key)
+  rendered.set(key, value)
 }
 
-const noop = () => {}
+let modulePromise: Promise<typeof import('./mathRender.js')> | undefined
+const loadRenderer = () => (modulePromise ??= import('./mathRender.js'))
 
-/** KaTeX 渲染公式；出错时保留上次成功的结果（流式中公式未写完），没有则展示原文 */
-const useMathHtml = (input: string, isInline: boolean): MathHtmlResult => {
-  const previousResultRef = useRef<MathHtmlResult | null>(null)
-  const katexRef = useRef(ensureKatex())
-  const [katex, setKatex] = useState<Katex | null>(
-    katexRef.current instanceof Promise ? null : katexRef.current
-  )
+const useFormula = (input: string, isInline: boolean, stageRef: RefObject<HTMLSpanElement>, loading: boolean) => {
+  const [renderer, setRenderer] = useState<Awaited<typeof import('./mathRender.js')> | null>(null)
+  const [html, setHtml] = useState<string | null>(() => rendered.get(`${isInline}:${input}`) ?? null)
+  const [visible, setVisible] = useState(true)
+
+  useLayoutEffect(() => {
+    const root = stageRef.current?.closest<HTMLElement>('[data-chat-scroll]')
+    if (!root || !window.IntersectionObserver) {return}
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { root, rootMargin: '120px 0px' })
+    if (stageRef.current) {observer.observe(stageRef.current)}
+    return () => observer.disconnect()
+  }, [stageRef])
 
   useEffect(() => {
-    if (katexRef.current instanceof Promise) {
-      katexRef.current.then(setKatex, noop)
-    }
+    let active = true
+    void loadRenderer().then((module) => { if (active) {setRenderer(module)} }, () => {})
+    return () => {active = false}
   }, [])
 
-  return useMemo((): MathHtmlResult => {
-    if (!katex) {
-      return { html: input, renderMode: 'fallback' }
+  useEffect(() => {
+    setHtml(rendered.get(`${isInline}:${input}`) ?? null)
+    if (!renderer || !visible) {return}
+    const key = `${isInline}:${input}`
+    if (rendered.has(key)) {return}
+    let active = true
+    let cancelMath = () => {}
+    let cancelIdle = () => {}
+    const render = () => {
+      if (!active) {return}
+      cancelMath = scheduleMath(async () => {
+        if (!active) {return}
+        const value = await renderer.render(input, isInline)
+        if (value === null) {if (active) {setHtml(null)}; return}
+        cache(key, value)
+        if (active) {setHtml(value)}
+      })
     }
-    try {
-      const [prefix, suffix] = KATEX_WRAPPER[isInline ? 'inline' : 'display']
-      const html = katex
-        .renderToString(input, { throwOnError: true, strict: false, displayMode: !isInline })
-        .slice(prefix.length, -suffix.length)
-      const result = { html, renderMode: 'katex' } as const
-      previousResultRef.current = result
-      return result
-    } catch {
-      return previousResultRef.current ?? { html: input, renderMode: 'fallback' }
-    }
-  }, [input, isInline, katex])
+    if (loading) {cancelIdle = scheduleIdle(render)}
+    else {render()}
+    return () => {active = false; cancelMath(); cancelIdle()}
+  }, [input, isInline, loading, renderer, visible])
+
+  return useMemo(() => renderer && html !== null
+    ? { html, rendered: true }
+    : { html: input, rendered: false }, [html, input, renderer])
 }
 
-export const MathBlock = memo(function MathBlock({ value }: { value: string }) {
-  const { html, renderMode } = useMathHtml(value, false)
-  if (renderMode === 'fallback') {
-    return <p className="ds-markdown-paragraph">{html}</p>
-  }
-  return (
-    <span className="katex-display ds-markdown-math">
-      <span className="katex" dangerouslySetInnerHTML={{ __html: html }}></span>
-    </span>
-  )
+export const MathBlock = memo(function MathBlock({ value, loading = true }: { value: string; loading?: boolean }) {
+  const stageRef = useRef<HTMLSpanElement>(null)
+  const { html, rendered } = useFormula(value, false, stageRef, loading)
+  return rendered
+    ? <span ref={stageRef} className="katex-display ds-markdown-math"><span className="katex" dangerouslySetInnerHTML={{ __html: html }}></span></span>
+    : <span ref={stageRef}><p className="ds-markdown-paragraph">{html}</p></span>
 })
 
-export const InlineMath = memo(function InlineMath({ value }: { value: string }) {
-  const { html, renderMode } = useMathHtml(value, true)
-  if (renderMode === 'fallback') {
-    return html
-  }
-  return <span className="katex" dangerouslySetInnerHTML={{ __html: html }}></span>
+export const InlineMath = memo(function InlineMath({ value, loading = true }: { value: string; loading?: boolean }) {
+  const stageRef = useRef<HTMLSpanElement>(null)
+  const { html, rendered } = useFormula(value, true, stageRef, loading)
+  return rendered
+    ? <span ref={stageRef} className="katex" dangerouslySetInnerHTML={{ __html: html }}></span>
+    : <span ref={stageRef}>{html}</span>
 })

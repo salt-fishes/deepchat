@@ -1,5 +1,5 @@
 import { useTranslate } from '../../i18n/index.js'
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTheme } from '../../app/theme.js'
 import { renderMermaid } from '../../services/markdown/mermaid.js'
 
@@ -15,20 +15,28 @@ export const MermaidDiagram = memo(function MermaidDiagram({
   const dark = useTheme() === 'dark'
   const [result, setResult] = useState({ svg: '', failedCode: null as string | null })
   const latestCodeRef = useRef(code)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const [active, setActive] = useState(true)
+  useLayoutEffect(() => {
+    const root = stageRef.current?.closest<HTMLElement>('[data-chat-scroll]')
+    if (!root || !window.IntersectionObserver) {return}
+    const observer = new IntersectionObserver(([entry]) => setActive(entry.isIntersecting), { root, rootMargin: '600px 0px' })
+    if (stageRef.current) {observer.observe(stageRef.current)}
+    return () => observer.disconnect()
+  }, [])
   latestCodeRef.current = code
   // 流式阶段从 ref 取最新文本，避免每个片段都取消绘制；结束后立即绘制完整内容。
   const finalCode = loading ? null : code
 
   useEffect(() => {
+    if (!active) {return}
     let cancelled = false
     let timer: ReturnType<typeof setTimeout> | undefined
     let previousCode: string | undefined
     let displayedCode: string | undefined
 
     const draw = async (input: string) => {
-      if (input === displayedCode || cancelled) {
-        return
-      }
+      if (input === displayedCode || cancelled) {return}
       const svg = await renderMermaid(input, dark, () => cancelled)
       if (svg && !cancelled) {
         displayedCode = input
@@ -74,11 +82,11 @@ export const MermaidDiagram = memo(function MermaidDiagram({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [dark, loading, finalCode])
+  }, [active, dark, loading, finalCode])
 
   if (!code.trim() || !result.svg) {
     return (
-      <div className="md-mermaid-status" role="status">
+      <div ref={stageRef} className="md-mermaid-status" role="status">
         {!loading && !code.trim()
           ? t('mermaidEmpty')
           : !loading && result.failedCode === code
@@ -88,5 +96,5 @@ export const MermaidDiagram = memo(function MermaidDiagram({
     )
   }
 
-  return <div className="md-mermaid-diagram" dangerouslySetInnerHTML={{ __html: result.svg }} />
+  return <div ref={stageRef} className="md-mermaid-diagram" dangerouslySetInnerHTML={{ __html: result.svg }} />
 })
