@@ -5,15 +5,15 @@ This guide defines the release process for deepchat. A release is complete only 
 ## Version rules
 
 - Use Semantic Versioning: `MAJOR.MINOR.PATCH`.
-- `package.json` stores the full version, for example `1.20.0`.
-- Android `versionName` stores `MAJOR.MINOR`, for example `1.18`.
+- `package.json` stores the full version, for example `1.21.0`.
+- Android `versionName` stores `MAJOR.MINOR`, for example `1.21`.
 - Android `versionCode` is a positive integer that must increase for every Android release.
-- The Git tag and GitHub Release use `vMAJOR.MINOR`, matching the repository convention, for example `v1.20`. The package and changelog keep the full `MAJOR.MINOR.PATCH` version.
+- The Git tag and GitHub Release use `vMAJOR.MINOR`, matching the repository convention, for example `v1.21`. The package and changelog keep the full `MAJOR.MINOR.PATCH` version.
 
 Run the consistency check before building:
 
 ```sh
-pnpm release:check v1.20
+pnpm release:check v1.21
 ```
 
 ## 1. Prepare the release
@@ -28,7 +28,7 @@ pnpm release:check v1.20
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm release:check v1.20
+pnpm release:check v1.21
 pnpm type
 pnpm lint
 pnpm test
@@ -90,10 +90,10 @@ Use one release commit that contains the source, documentation, version bump and
 
 ```sh
 git add .
-git commit -m "Release v1.20: summarize the release"
-git tag -a v1.20 -m "deepchat v1.20"
+git commit -m "Release v1.21: summarize the release"
+git tag -a v1.21 -m "deepchat v1.21"
 git push origin main
-git push origin v1.20
+git push origin v1.21
 ```
 
 Review `git status` before committing. If the repository uses protected branches, open a release pull request and merge it before pushing the tag.
@@ -103,19 +103,19 @@ Review `git status` before committing. If the repository uses protected branches
 Upload the standardized artifacts and generated notes:
 
 ```sh
-gh release create v1.20 \
+gh release create v1.21 \
   release/deepchat-release-signed.apk \
-  release/deepchat-web-v1.20.0.zip \
+  release/deepchat-web-v1.21.0.zip \
   release/SHA256SUMS.txt \
   release/release-manifest.json \
   --verify-tag \
-  --title "deepchat v1.20" \
+  --title "deepchat v1.21" \
   --notes-file release/RELEASE_NOTES.md
 ```
 
 After publication:
 
-1. Run `gh release view v1.20` and confirm every asset is uploaded.
+1. Run `gh release view v1.21` and confirm every asset is uploaded.
 2. Confirm `releases/latest` points to the new stable release.
 3. Check the in-app update screen from the previous installed version.
 4. Confirm the GitHub Pages workflow completes after `main` is pushed.
@@ -129,7 +129,7 @@ Omit the commit, tag, push and `gh release create` steps when preparing a local 
 
 - Do not delete, move or rewrite published tags.
 - Do not replace assets on an existing GitHub Release after users may have downloaded them.
-- If a release is defective, ship the smallest fix as the next patch version, for example `v1.20.1`.
+- If a release is defective, ship the smallest fix as the next patch version, for example `v1.21.1`.
 - Keep the previous release available until the replacement has passed smoke testing.
 
 ## Release checklist

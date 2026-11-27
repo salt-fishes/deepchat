@@ -79,6 +79,7 @@
     right: 0;
     left: 0;
     height: 76px;
+    opacity: 0;
     background: var(--dsw-alias-bg-base);
     -webkit-mask-image: linear-gradient(
       to bottom,
@@ -97,6 +98,10 @@
       transparent 100%
     );
     pointer-events: none;
+  }
+
+  &[data-stuck='true']::before {
+    opacity: 1;
   }
 
   &:hover {

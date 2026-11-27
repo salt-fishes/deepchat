@@ -1,6 +1,6 @@
 {
   "name": "deepchat",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "description": "基于 DeepSeek API 的聊天客户端，提供 Web 与 Android 版本。",
   "license": "MIT",
   "private": true,

@@ -2,12 +2,17 @@ import clsx from 'clsx'
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { useUploads } from '../../services/attachments.js'
-import { getSavedFileVersion, loadFile, loadRecentImage, subscribeSavedFile } from '../../services/chat/db.js'
+import {
+  getSavedFileVersion,
+  loadFile,
+  loadRecentImage,
+  subscribeSavedFile,
+} from '../../services/chat/db.js'
 import type { FileAttachment } from '../../services/chat/types.js'
 import { IconPhotoErrorFill20, IconRefreshOutline16 } from '../base/icons.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { FileCard } from '../files/FileCard.js'
-import { openImageViewer } from '../media/imageWorkbenchState.js'
+import { openImageViewer, type ViewerImage } from '../media/imageWorkbenchState.js'
 import styles from './MessageFile.module.css'
 
 /** 原件从 IndexedDB 读出并生成本地地址；undefined 表示加载中，null 表示原件缺失。 */
@@ -22,12 +27,18 @@ const useFileUrl = (id: string, isImage: boolean, mimeType: string, retryKey: nu
     let cancelled = false
     setFileUrl(null)
     const load = isImage ? () => loadRecentImage(id, mimeType) : () => loadFile(id)
-    load().then((blob) => {
-      if (!cancelled) {
-        objectUrl = blob ? URL.createObjectURL(blob) : null
-        setFileUrl({ id, url: objectUrl })
-      }
-    }).catch(() => { if (!cancelled) {setFileUrl({ id, url: null })} })
+    load()
+      .then((blob) => {
+        if (!cancelled) {
+          objectUrl = blob ? URL.createObjectURL(blob) : null
+          setFileUrl({ id, url: objectUrl })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFileUrl({ id, url: null })
+        }
+      })
     return () => {
       cancelled = true
       if (objectUrl) {
@@ -56,9 +67,12 @@ const useUploadState = (file: FileAttachment) =>
  */
 export const MessageFile = ({
   file,
+  gallery,
   onRetry,
 }: {
   file: FileAttachment
+  /** 本条消息的全部图片，查看器左右滑动时使用 */
+  gallery: ViewerImage[]
   /** 本条消息补传失败且可重试时提供 */
   onRetry: (() => void) | null
 }) => {
@@ -148,7 +162,9 @@ export const MessageFile = ({
         className={clsx(styles.image, styles.imageThumb)}
         title={file.name}
         aria-label={file.name}
-        onClick={() => openImageViewer({ id: file.id, name: file.name, mimeType: file.mimeType })}
+        onClick={() =>
+          openImageViewer({ id: file.id, name: file.name, mimeType: file.mimeType }, gallery)
+        }
       >
         {preview}
       </button>

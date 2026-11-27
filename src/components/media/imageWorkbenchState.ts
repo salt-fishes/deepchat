@@ -17,6 +17,9 @@ export type ImageWorkbenchRequest = {
   id: number
   source: ImageWorkbenchSource
   mode: ImageWorkbenchMode
+  /** 同一消息内的图片序列；查看器左右滑动时使用。 */
+  gallery?: ViewerImage[]
+  index?: number
   /** 草稿/拍照流程等待文件；消息查看不需要 Promise。 */
   resolve?: (file: File | null) => void
 }
@@ -61,14 +64,37 @@ export const openImageFiles = async (
   return confirmed
 }
 
-/** 消息图片入口：查看、下载，裁剪后把图片放回当前会话输入框。 */
-export const openImageViewer = (image: ViewerImage) => {
+/** 图片的稳定键：同一附件在多条消息里复用时只保留一次。 */
+export const viewerImageKey = (image: ViewerImage) =>
+  'id' in image ? `id:${image.id}` : `src:${image.src}`
+
+export const viewerImageSource = (image: ViewerImage): ImageWorkbenchSource =>
+  'id' in image
+    ? { kind: 'stored', id: image.id, name: image.name, mimeType: image.mimeType }
+    : { kind: 'remote', src: image.src, name: image.name, mimeType: image.mimeType }
+
+/** 消息图片入口：查看、下载、左右浏览，裁剪后把图片放回当前会话输入框。 */
+export const openImageViewer = (image: ViewerImage, gallery = [image]) => {
+  const images: ViewerImage[] = []
+  const seen = new Set<string>()
+  for (const item of gallery) {
+    const key = viewerImageKey(item)
+    if (seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    images.push(item)
+  }
+  let index = images.findIndex((item) => viewerImageKey(item) === viewerImageKey(image))
+  if (index < 0) {
+    images.unshift(image)
+    index = 0
+  }
   show({
     mode: 'preview',
-    source:
-      'id' in image
-        ? { kind: 'stored', id: image.id, name: image.name, mimeType: image.mimeType }
-        : { kind: 'remote', src: image.src, name: image.name, mimeType: image.mimeType },
+    source: viewerImageSource(image),
+    gallery: images,
+    index,
   })
 }
 

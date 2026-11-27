@@ -23,6 +23,7 @@ import { AssistantMessage } from './AssistantMessage.js'
 import { ScrollToBottomContext } from './scrollContext.js'
 import { UserMessage } from './UserMessage.js'
 import type { Message } from '../../services/chat/types.js'
+import type { ViewerImage } from '../media/imageWorkbenchState.js'
 import { useExitPresence } from '../../app/useExitPresence.js'
 import { useEdgeBounce } from './useEdgeBounce.js'
 import { VisibleMessage } from './VisibleMessage.js'
@@ -84,6 +85,33 @@ export const MessageList = ({
   const spacerRef = useRef<HTMLDivElement>(null)
   const restoreScrollRef = useRef<{ messageId: string; top: number } | null>(null)
   const messages = getVisibleMessages(session)
+  // Keep the gallery stable while assistant text streams, but include images
+  // from every visible user message so swiping can cross message boundaries.
+  const imageGalleryKey = messages
+    .map((message) =>
+      message.role === 'user'
+        ? message.files
+            .filter((file) => file.isImage)
+            .map((file) => file.id)
+            .join(',')
+        : ''
+    )
+    .join('|')
+  const imageGallery = useMemo<ViewerImage[]>(() => {
+    const images: ViewerImage[] = []
+    for (const message of messages) {
+      if (message.role !== 'user') {
+        continue
+      }
+      for (const file of message.files) {
+        if (file.isImage) {
+          images.push({ id: file.id, name: file.name, mimeType: file.mimeType })
+        }
+      }
+    }
+    return images
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageGalleryKey])
   const [previousVersions, setPreviousVersions] = useState(() =>
     buildMessageVersions(session, new Map())
   )
@@ -360,6 +388,7 @@ export const MessageList = ({
                     key={message.id}
                     sessionId={session.id}
                     message={message}
+                    imageGallery={imageGallery}
                     retryUploadId={uploadRetryId}
                     isFirst={index === 0}
                     isLast={index === lastIndex || index === lastIndex - 1}

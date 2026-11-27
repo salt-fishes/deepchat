@@ -9,7 +9,16 @@ import {
   resolveImageWorkbench,
   setImageWorkbenchMode,
   useImageWorkbench,
+  viewerImageKey,
+  viewerImageSource,
 } from '../src/components/media/imageWorkbenchState.ts'
+import {
+  clampViewerOffset,
+  MAX_VIEWER_ZOOM,
+  pinchViewer,
+  resolveViewerSwipe,
+  zoomViewerAt,
+} from '../src/components/media/viewerGeometry.ts'
 import {
   clampCropImageOffset,
   clampCropRect,
@@ -82,6 +91,71 @@ test('a stale async result cannot close the next request', async () => {
   assert.equal(resolveImageWorkbench(file(), staleId), false)
   assert.equal(useImageWorkbench.getState().request.source.kind, 'stored')
   resolveImageWorkbench(null)
+})
+
+test('viewer opens the tapped image inside a deduplicated gallery order', () => {
+  const first = { id: 'one', name: 'one.png', mimeType: 'image/png' }
+  const second = { id: 'two', name: 'two.png', mimeType: 'image/png' }
+  const third = { id: 'three', name: 'three.png', mimeType: 'image/png' }
+  openImageViewer(second, [first, second, first, third])
+  const request = useImageWorkbench.getState().request
+  assert.deepEqual(
+    request.gallery.map((image) => viewerImageKey(image)),
+    ['id:one', 'id:two', 'id:three']
+  )
+  assert.equal(request.index, 1)
+  assert.equal(request.source.kind, 'stored')
+  assert.equal(request.source.id, 'two')
+  assert.equal(
+    viewerImageSource({ src: 'https://example.com/a.jpg', name: 'a.jpg' }).kind,
+    'remote'
+  )
+  resolveImageWorkbench(null)
+})
+
+test('viewer gallery appends a tapped image that is missing from its list', () => {
+  const tapped = { src: 'https://example.com/tapped.jpg', name: 'tapped.jpg' }
+  openImageViewer(tapped, [{ src: 'https://example.com/other.jpg', name: 'other.jpg' }])
+  const request = useImageWorkbench.getState().request
+  assert.equal(request.index, 0)
+  assert.equal(request.gallery[0], tapped)
+  assert.equal(request.gallery.length, 2)
+  resolveImageWorkbench(null)
+})
+
+test('viewer offsets clamp to the scaled content and reset at fit scale', () => {
+  assert.deepEqual(clampViewerOffset({ x: 30, y: -30 }, 1, 200, 100, 300, 300), { x: 0, y: 0 })
+  assert.deepEqual(clampViewerOffset({ x: 999, y: 999 }, 2, 200, 100, 300, 300), { x: 50, y: 0 })
+  assert.deepEqual(clampViewerOffset({ x: -999, y: 999 }, 3, 200, 100, 200, 100), {
+    x: -200,
+    y: 100,
+  })
+})
+
+test('viewer zoom keeps the tapped content point fixed and respects max zoom', () => {
+  assert.deepEqual(zoomViewerAt({ x: 10, y: 0 }, { x: 0, y: 0 }, 1, 2), { x: -10, y: 0 })
+  assert.deepEqual(zoomViewerAt({ x: 0, y: 0 }, { x: 20, y: 10 }, 2, 1), { x: 10, y: 5 })
+  const maxed = zoomViewerAt({ x: 100, y: 0 }, { x: 0, y: 0 }, 1, 10)
+  assert.equal(MAX_VIEWER_ZOOM, 4)
+  assert.deepEqual(maxed, { x: -300, y: 0 })
+})
+
+test('viewer pinch tracks a moving midpoint around the start anchor', () => {
+  const result = pinchViewer({ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 0, y: 0 }, 1, 2)
+  assert.deepEqual(result, { scale: 2, offset: { x: 20, y: 0 } })
+  const reduced = pinchViewer({ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 }, 2, 0.1)
+  assert.deepEqual(reduced, { scale: 1, offset: { x: 5, y: 0 } })
+})
+
+test('viewer swipe resolves distance, velocity and gallery edges', () => {
+  assert.equal(resolveViewerSwipe(10, 0, 1, 3, 300), 1)
+  assert.equal(resolveViewerSwipe(-80, 0, 1, 3, 300), 2)
+  assert.equal(resolveViewerSwipe(80, 0, 1, 3, 300), 0)
+  assert.equal(resolveViewerSwipe(-40, 0.8, 0, 3, 300), 1)
+  assert.equal(resolveViewerSwipe(80, 0.1, 0, 3, 300), 0)
+  assert.equal(resolveViewerSwipe(-800, 0, 0, 3, 300), 1)
+  assert.equal(resolveViewerSwipe(-800, 0, 2, 3, 300), 2)
+  assert.equal(resolveViewerSwipe(-800, 0, 0, 1, 300), 0)
 })
 
 test('legacy blobs use image MIME metadata without changing image bytes', async () => {

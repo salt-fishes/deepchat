@@ -14,6 +14,7 @@ import {
   type SelectMessageVersion,
 } from './BranchSwitcher.js'
 import { MessageFile } from './MessageFile.js'
+import type { ViewerImage } from '../media/imageWorkbenchState.js'
 import { CopyButton, copyWithFeedback } from './CopyButton.js'
 import { MessageActionMenu } from './MessageActionMenu.js'
 import { requestUserMessageEdit } from './messageGestureEvents.js'
@@ -27,6 +28,7 @@ import styles from './UserMessage.module.css'
 export const UserMessage = memo(function UserMessage({
   sessionId,
   message,
+  imageGallery,
   retryUploadId,
   isFirst,
   isLast,
@@ -37,6 +39,8 @@ export const UserMessage = memo(function UserMessage({
 }: {
   sessionId: string
   message: UserMessageType
+  /** 当前会话全部可见图片，查看器左右滑动时使用 */
+  imageGallery: ViewerImage[]
   /** 回答因补传附件失败可重试时为该回答 id */
   retryUploadId: string | null
   isFirst: boolean
@@ -102,6 +106,7 @@ export const UserMessage = memo(function UserMessage({
             <MessageFile
               key={file.id}
               file={file}
+              gallery={imageGallery}
               onRetry={retryUploadId ? () => retryUpload(sessionId, retryUploadId) : null}
             />
           ))}

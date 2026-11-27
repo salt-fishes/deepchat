@@ -70,11 +70,13 @@ export const ReplyArea = memo(function ReplyArea({
   const stepsId = useId()
   const viewportRef = useRef<HTMLDivElement>(null)
   const stepsRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLButtonElement>(null)
   const titleActive = streaming && !hasResponse
   useTicker(titleActive, 1000)
   // 未记录请求开关时，按是否有思考内容显示标题。
   const thinking = message.thinking ?? view.steps.some((step) => step.type === 'thinking')
   const title = thinking ? getAreaTitle(view, streaming, Date.now(), hasResponse) : null
+  const hasTitle = Boolean(title)
   const mode = !title
     ? 'expanded'
     : (manual ?? (compactThinking ? (titleActive ? 'preview' : 'collapsed') : 'expanded'))
@@ -108,6 +110,62 @@ export const ReplyArea = memo(function ReplyArea({
     return () => observer.disconnect()
   }, [capped, collapsed, preview, visible])
 
+  // The title fade only belongs to the pinned state. Painting it in normal
+  // flow made the first thinking lines look washed out while the page was
+  // still at the top; it should start only once content scrolls underneath.
+  useEffect(() => {
+    const element = titleRef.current
+    if (!element) {
+      return
+    }
+    const findScroller = () => {
+      for (let node = element.parentElement; node; node = node.parentElement) {
+        if (/auto|scroll/.test(getComputedStyle(node).overflowY)) {
+          return node
+        }
+      }
+      return null
+    }
+    let scroller = findScroller()
+    let frame = 0
+    const update = () => {
+      frame = 0
+      if (!element.isConnected) {
+        return
+      }
+      if (!scroller?.isConnected) {
+        scroller = findScroller()
+      }
+      const rootTop = scroller ? scroller.getBoundingClientRect().top : 0
+      const rect = element.getBoundingClientRect()
+      const stuck = rect.top <= rootTop + 0.5 && rect.bottom > rootTop + 0.5
+      if (stuck) {
+        element.dataset.stuck = 'true'
+      } else {
+        delete element.dataset.stuck
+      }
+    }
+    const schedule = () => {
+      if (!frame) {
+        frame = requestAnimationFrame(update)
+      }
+    }
+    update()
+    window.addEventListener('scroll', schedule, { capture: true, passive: true })
+    window.addEventListener('resize', schedule)
+    const observer = new ResizeObserver(schedule)
+    observer.observe(element)
+    if (scroller) {
+      observer.observe(scroller)
+    }
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', schedule, { capture: true })
+      window.removeEventListener('resize', schedule)
+      observer.disconnect()
+    }
+  }, [hasTitle, mode, visible])
+
   if (!visible) {
     return null
   }
@@ -116,6 +174,7 @@ export const ReplyArea = memo(function ReplyArea({
     <div className={styles.area}>
       {title ? (
         <button
+          ref={titleRef}
           type="button"
           className={styles.title}
           aria-controls={stepsId}

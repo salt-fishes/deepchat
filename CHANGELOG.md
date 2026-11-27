@@ -4,6 +4,17 @@ All notable changes to deepchat are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/).
 
+## [1.21.0] - 2026-11-27
+
+### Fixed
+
+- Mobile drawer swipes now ignore the implicit pointer-capture transfer, and release settling drives the drawer and pushed page to the resolved target instead of flashing shut.
+- The thinking title fade now appears only while the title is pinned and content is scrolling underneath it, instead of washing out the first lines in normal flow.
+- The image viewer supports left/right browsing across visible conversation images, continuous pinch zoom, anchored tap zoom and one-finger panning while zoomed.
+- Cropping defaults to free aspect in both entry paths, follows the finger through pointer-up, and keeps using the image selected in the viewer.
+
+[1.21.0]: https://github.com/salt-fishes/deepchat/releases/tag/v1.21
+
 ## [1.20.0] - 2026-11-27
 
 ### Changed

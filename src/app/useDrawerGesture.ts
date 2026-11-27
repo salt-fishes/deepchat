@@ -59,7 +59,6 @@ export const useDrawerGesture = ({
     let settle: Settle | null = null
     let suppressClick = false
     let frame = 0
-    let settleFrame = 0
     let generation = 0
 
     const paint = (progress: number, width: number) => {
@@ -95,10 +94,6 @@ export const useDrawerGesture = ({
       window.clearTimeout(settle.timeout)
       main.removeEventListener('transitionend', settle.onEnd)
       settle = null
-      if (settleFrame) {
-        cancelAnimationFrame(settleFrame)
-        settleFrame = 0
-      }
     }
 
     const finishSettle = (expected: number) => {
@@ -106,9 +101,11 @@ export const useDrawerGesture = ({
         return
       }
       clearSettle()
+      // Commit the class state before dropping the inline target so the drawer
+      // never flashes back to its closed transform for a frame.
+      flushSync(() => setSiderSettling(false))
       clearInlineTransforms()
       clearMotionVariables()
-      setSiderSettling(false)
     }
 
     const beginSettle = (targetOpen: boolean, progress: number, velocity = 0) => {
@@ -127,7 +124,10 @@ export const useDrawerGesture = ({
       const currentGeneration = ++generation
       const motion = getDrawerMotion(current, targetOpen, velocity, width)
       const easing = motion.easing === 'enter' ? ENTER_EASING : EXIT_EASING
-      useMobileSider.setState({ open: targetOpen, dragging: false, settling: true })
+      // Remove the no-transition drag classes before the target frame is written.
+      flushSync(() => {
+        useMobileSider.setState({ open: targetOpen, dragging: false, settling: true })
+      })
       paint(current, width)
       drawer.style.setProperty('--drawer-duration', `${motion.duration}ms`)
       drawer.style.setProperty('--drawer-easing', easing)
@@ -146,13 +146,14 @@ export const useDrawerGesture = ({
         onEnd,
       }
       main.addEventListener('transitionend', onEnd)
-      settleFrame = requestAnimationFrame(() => {
-        settleFrame = requestAnimationFrame(() => {
-          if (settle?.generation === currentGeneration) {
-            clearInlineTransforms()
-          }
-        })
-      })
+      // Drive the whole settle with the painted start and the resolved target.
+      // Clearing the inline transform here used to hand control back to classes
+      // that did not encode the target while `settling` was true, so a drawer
+      // released towards open could visually snap shut first.
+      drawer.style.transform = `translateX(${targetOpen ? 0 : -100}%)`
+      main.style.transform = `translateX(${targetOpen ? width : 0}px) scaleY(${
+        reducedMotion.matches ? 1 : 1 - target * 0.015
+      })`
     }
 
     const releaseCapture = (active: Drag) => {
@@ -334,7 +335,14 @@ export const useDrawerGesture = ({
     }
 
     const onLostCapture = (event: PointerEvent) => {
-      if (drag?.id !== event.pointerId) {
+      const active = drag
+      if (!active || active.id !== event.pointerId) {
+        return
+      }
+      // Transferring capture from the original touch target to the pushed main
+      // surface emits lostpointercapture for the old target. That is not a
+      // cancellation signal; treating it as one aborted every slow swipe.
+      if (event.target !== active.surface) {
         return
       }
       onCancel(event)

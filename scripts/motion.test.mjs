@@ -72,9 +72,18 @@ test('drawer and bottom sheet gestures guard cancellation and reduced motion', a
   const drawer = await read('../src/app/useDrawerGesture.ts')
   const sheet = await read('../src/components/messages/MessageBottomSheet.tsx')
   assert.match(drawer, /lostpointercapture/)
+  assert.match(drawer, /event\.target !== active\.surface/)
   assert.match(drawer, /gestureEpoch/)
   assert.match(drawer, /setSiderSettling/)
   assert.match(sheet, /shouldDismissSheet/)
   assert.match(sheet, /data-sheet-drag-closing|sheetDragClosing/)
   assert.match(sheet, /prefers-reduced-motion/)
+})
+
+test('thinking title fade is limited to the pinned state', async () => {
+  const reply = await read('../src/components/messages/ReplyArea.tsx')
+  const css = await read('../src/components/messages/ReplyArea.module.css')
+  assert.match(reply, /dataset\.stuck/)
+  assert.match(css, /data-stuck='true'/)
+  assert.match(css, /opacity: 0;/)
 })
