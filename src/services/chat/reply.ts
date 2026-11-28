@@ -16,6 +16,36 @@ import type {
 } from './types.js'
 
 /**
+ * DeepSeek 在开启 safety_check 时，会把审核结果作为普通文本块返回：
+ * `\n\n<ds_safety>[用户未成年]…[判定]…</ds_safety>`。
+ * 这是给调用方日志/风控用的内部元数据，不属于回答正文，不能展示、不能回传上下文。
+ */
+const COMPLETE_SAFETY_BLOCK = /<ds_safety>[\s\S]*?<\/ds_safety>/gi
+const OPEN_SAFETY_BLOCK = /<ds_safety>[\s\S]*$/i
+const STRAY_SAFETY_CLOSE = /<\/ds_safety>/gi
+
+export const stripSafetyText = (text: string): string => {
+  if (!/<ds_safety>|<\/ds_safety>/i.test(text)) {
+    return text
+  }
+  let next = text.replace(COMPLETE_SAFETY_BLOCK, '')
+  // 流式阶段可能先收到半个块，直接把未闭合的开标签及其后面全部截掉。
+  next = next.replace(OPEN_SAFETY_BLOCK, '')
+  next = next.replace(STRAY_SAFETY_CLOSE, '')
+  return next.trim() === '' ? '' : next
+}
+
+/** 清理回复里的文本块；只剩审核元数据的块直接丢掉。 */
+export const stripSafetyBlocks = (blocks: ReplyBlock[]): ReplyBlock[] =>
+  blocks.flatMap((block): ReplyBlock[] => {
+    if (block.type !== 'text') {
+      return [block]
+    }
+    const text = stripSafetyText(block.text)
+    return text ? [{ ...block, text }] : []
+  })
+
+/**
  * 文件按 Files API 的 file_id（附件的 serverId）引用：图片用 image 块，其余用 document 块。
  * 发送前 streamReply 会先补齐 serverId；仍为 null 的是本地没有原件的附件，不进入请求。
  */
@@ -145,23 +175,23 @@ export const settleReply = (
   status: Extract<ReplyStatus, 'done' | 'stopped' | 'error'>,
   now: number,
   error?: AssistantMessage['error']
-): AssistantMessage => ({
-  ...reply,
-  status,
-  error,
-  blocks: reply.blocks.flatMap((block): ReplyBlock[] => {
-    if (reply.stopReason === 'refusal' && (block.type === 'thinking' || block.type === 'text')) {
-      return []
-    }
-    return block.type === 'thinking' && block.startedAt !== undefined && block.endedAt === undefined
-      ? [{ ...block, endedAt: now }]
-      : [block]
-  }),
-})
+): AssistantMessage => {
+  const blocks = reply.blocks
+    .filter(
+      (block) =>
+        !(reply.stopReason === 'refusal' && (block.type === 'thinking' || block.type === 'text'))
+    )
+    .map((block) =>
+      block.type === 'thinking' && block.startedAt !== undefined && block.endedAt === undefined
+        ? { ...block, endedAt: now }
+        : block
+    )
+  return { ...reply, status, error, blocks: stripSafetyBlocks(blocks) }
+}
 
 /** 回复里所有文本块拼起来，用于复制与判断是否有回答 */
 export const getReplyText = (reply: AssistantMessage) =>
-  reply.blocks.map((block) => (block.type === 'text' ? block.text : '')).join('')
+  reply.blocks.map((block) => (block.type === 'text' ? stripSafetyText(block.text) : '')).join('')
 
 /**
  * 只有正常达到输出上限或被停止的回复可续写，报错回复不能续写。
@@ -239,26 +269,30 @@ const toAssistantParam = (
     )
   )
   /** 正在拼接的文本块；遇到任何非文本块（含不回传的思考块）就结束 */
-  let text: TextBlockParam | null = null
+  let text_block: TextBlockParam | null = null
   for (const block of blocks) {
     // 空思考不改变续写位置，也不应把两段正文隔开，导致后端额外插入空行。
     if (prefix && block.type === 'thinking' && !block.thinking.trim()) {
       continue
     }
     if (block.type === 'text') {
-      if (text) {
-        text.text += block.text
+      const text = stripSafetyText(block.text)
+      if (!text) {
+        continue
+      }
+      if (text_block) {
+        text_block.text += text
       } else {
         const previous = content.at(-1)
-        text = {
+        text_block = {
           type: 'text',
-          text: `${previous?.type === 'text' ? '\n\n' : ''}${block.text}`,
+          text: `${previous?.type === 'text' ? '\n\n' : ''}${text}`,
         }
-        content.push(text)
+        content.push(text_block)
       }
       continue
     }
-    text = null
+    text_block = null
     if (prefix && thinking && block.type === 'thinking') {
       // 续写保留本轮思考，历史轮次的思考省略。
       const { type, thinking, signature } = block

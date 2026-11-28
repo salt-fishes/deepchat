@@ -1,6 +1,7 @@
 import type { ServerToolUseBlock } from '../../api/types.js'
 import { getVisibleMessages, normalizeSession } from '../branches.js'
 import { describeReply } from '../describe.js'
+import { stripSafetyText } from '../reply.js'
 import type { AssistantMessage, Message, ReplyBlock, Session, UserMessage } from '../types.js'
 import { fail } from './errors.js'
 import type {
@@ -134,12 +135,16 @@ const assistantFragments = (message: AssistantMessage): Fragment[] => {
   let response: { type: 'RESPONSE' | 'TEMPLATE_RESPONSE'; content: string } | undefined
   for (const block of blocks) {
     if (block.type === 'text') {
+      const text = stripSafetyText(block.text)
+      if (!text) {
+        continue
+      }
       const type = block.isTemplate ? 'TEMPLATE_RESPONSE' : 'RESPONSE'
       if (!response || response.type !== type) {
         response = { type, content: '' }
         fragments.push(response)
       }
-      response.content += usedWeb ? block.text.replace(/\[citation:\d+\]/g, '') : block.text
+      response.content += usedWeb ? text.replace(/\[citation:\d+\]/g, '') : text
       continue
     }
     const converted: Fragment[] =

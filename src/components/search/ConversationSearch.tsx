@@ -4,6 +4,7 @@ import { useTranslate } from '../../i18n/index.js'
 import { loadSession } from '../../services/chat/db.js'
 import { selectSession, useChatStore } from '../../services/chat/store.js'
 import type { Message } from '../../services/chat/types.js'
+import { stripSafetyText } from '../../services/chat/reply.js'
 import { useSettings } from '../../services/settings.js'
 import {
   IconChatOutline24,
@@ -25,7 +26,11 @@ const messageText = (message: Message): string => {
   }
   return message.blocks
     .map((block) =>
-      block.type === 'text' ? block.text : block.type === 'thinking' ? block.thinking : ''
+      block.type === 'text'
+        ? stripSafetyText(block.text)
+        : block.type === 'thinking'
+          ? block.thinking
+          : ''
     )
     .join(' ')
 }

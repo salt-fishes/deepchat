@@ -15,7 +15,9 @@ const version = String(packageJson.version ?? '').trim()
 if (!/^\d+\.\d+\.\d+$/.test(version)) {
   throw new Error(`Cannot package an unstable or missing version: ${version || '(missing)'}`)
 }
-const tag = `v${version.split('.').slice(0, 2).join('.')}`
+const tag = version.endsWith('.0')
+  ? `v${version.split('.').slice(0, 2).join('.')}`
+  : `v${version}`
 
 const versionCode = Number(/\bversionCode\s+(\d+)\b/.exec(gradle)?.[1])
 if (!Number.isSafeInteger(versionCode) || versionCode < 1) {

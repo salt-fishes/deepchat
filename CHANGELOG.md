@@ -4,6 +4,14 @@ All notable changes to deepchat are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/).
 
+## [1.22.1] - 2026-11-29
+
+### Fixed
+
+- DeepSeek safety-check metadata (`<ds_safety>…</ds_safety>`) is no longer rendered, stored, exported, searched, or sent back to the model as part of the answer.
+
+[1.22.1]: https://github.com/salt-fishes/deepchat/releases/tag/v1.22.1
+
 ## [1.22.0] - 2026-11-28
 
 ### Added

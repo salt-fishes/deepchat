@@ -7,6 +7,7 @@ import type {
   WebSearchToolResultBlock,
 } from '../api/types.js'
 import type { AssistantMessage, ThinkingPart } from './types.js'
+import { stripSafetyText } from './reply.js'
 
 /**
  * 由回复的内容块推导界面需要的结构：思考与工具步骤的时间线、带引用角标的正文、可引用的来源列表。
@@ -157,7 +158,11 @@ const joinTextBlocks = (
 ) => {
   let markdown = ''
   let text = ''
-  for (const block of blocks) {
+  for (const raw of blocks) {
+    const block = { ...raw, text: stripSafetyText(raw.text) }
+    if (!block.text) {
+      continue
+    }
     text += block.text
     const indexes = new Set<number>()
     for (const citation of block.citations ?? []) {
