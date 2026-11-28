@@ -24,6 +24,8 @@ export type FileAttachment = {
   isImage: boolean
   /** 具体 MIME；导入时没有原件或无法识别的为空字符串，不影响图片身份。 */
   mimeType: string
+  /** sha256 内容哈希；同步服务用它去重并在其他设备按需取图。 */
+  sha256?: string
 }
 
 /** 本地消息的分支关系；字段缺省时按线性消息列表处理。 */

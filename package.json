@@ -1,6 +1,6 @@
 {
   "name": "deepchat",
-  "version": "1.21.0",
+  "version": "1.22.0",
   "description": "基于 DeepSeek API 的聊天客户端，提供 Web 与 Android 版本。",
   "license": "MIT",
   "private": true,
@@ -21,7 +21,8 @@
     "test:images": "node --test scripts/image-workbench.test.mjs",
     "test:pricing": "node --test scripts/pricing.test.mjs",
     "test:share-card": "node --test scripts/share-card.test.mjs",
-    "test": "pnpm test:context && pnpm test:scroll && pnpm test:motion && pnpm test:settings && pnpm test:math && pnpm test:images && pnpm test:pricing && pnpm test:share-card",
+    "test:sync": "node --test scripts/sync.test.mjs",
+    "test": "pnpm test:context && pnpm test:scroll && pnpm test:motion && pnpm test:settings && pnpm test:math && pnpm test:images && pnpm test:pricing && pnpm test:share-card && pnpm test:sync",
     "lint": "oxlint src rspack.config.ts",
     "format": "oxfmt --write ."
   },

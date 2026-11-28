@@ -4,6 +4,20 @@ All notable changes to deepchat are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/).
 
+## [1.22.0] - 2026-11-28
+
+### Added
+
+- Optional multi-device sync: paste one sync code per device once, then chats sync silently on launch, on returning to the foreground, when the network recovers, and after messages are saved. Sessions, messages, branches and deletions merge by ID; images upload by content hash and download on demand. API keys, drafts and non-image attachments stay on the device.
+
+### Changed
+
+- Multi-device sync is configured under **Settings → Account**, accepts the server address separately from the key, and does not bulk-upload local history that existed before sync was enabled.
+- Mobile drawer settling now continues the finger's movement immediately: lower intent and commit thresholds, a 140–280 ms settle, and a decelerating exit curve instead of the previous sticky ease-in.
+- Image viewer edge resistance is lighter when panning past the first or last image.
+
+[1.22.0]: https://github.com/salt-fishes/deepchat/releases/tag/v1.22
+
 ## [1.21.0] - 2026-11-27
 
 ### Fixed

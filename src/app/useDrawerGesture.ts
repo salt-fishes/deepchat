@@ -14,10 +14,12 @@ type DrawerGestureOptions = {
   sliverRef: RefObject<HTMLDivElement | null>
 }
 
-const INTENT_DISTANCE = 10
+const INTENT_DISTANCE = 6
 const EDITOR = 'textarea, input, select, [contenteditable]:not([contenteditable="false"])'
-const ENTER_EASING = 'cubic-bezier(0.2, 0.75, 0.25, 1)'
-const EXIT_EASING = 'cubic-bezier(0.4, 0, 0.8, 0.55)'
+// Both directions use a decelerating curve: the sheet leaves the finger's
+// release point immediately, then settles without the old sticky ease-in.
+const ENTER_EASING = 'cubic-bezier(0.22, 0.72, 0.24, 1)'
+const EXIT_EASING = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
 const clamp = (value: number) => Math.max(0, Math.min(1, value))
 
 export const useDrawerGesture = ({
@@ -255,7 +257,7 @@ export const useDrawerGesture = ({
         }
         const outward =
           (active.initialProgress <= 0.001 && dx < 0) || (active.initialProgress >= 0.999 && dx > 0)
-        if (outward || Math.abs(dx) < Math.abs(dy) * 1.2 || selecting || horizontalScroll) {
+        if (outward || Math.abs(dx) < Math.abs(dy) || selecting || horizontalScroll) {
           const interrupted = active.interrupted
           drag = null
           if (interrupted) {

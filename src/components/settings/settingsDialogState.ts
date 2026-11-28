@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { useSettings } from '../../services/settings.js'
 
-export type SettingsSection = 'general' | 'api' | 'data' | 'language' | 'appearance' |
+export type SettingsSection = 'general' | 'api' | 'data' | 'sync' | 'language' | 'appearance' |
   'font' | 'personalization' | 'voice' | 'update' | 'terms' | 'help' | 'usage'
 
 /** 设置弹窗：侧边栏底部、没有 API Key 时的操作与 401 提示都可以打开；section 为打开时选中的分组 */

@@ -101,7 +101,7 @@ const idbSaveSession = async (session: Session, files: StoredFile[] = []): Promi
   ])
 }
 
-const idbRenameSession = async (id: string, title: string): Promise<void> => {
+const idbRenameSession = async (id: string, title: string, updatedAt?: number): Promise<void> => {
   const tx = (await getDB()).transaction(['sessions', 'sessionSummaries'], 'readwrite')
   await Promise.all([
     (async () => {
@@ -110,6 +110,9 @@ const idbRenameSession = async (id: string, title: string): Promise<void> => {
         const session = await sessions.get(id)
         if (session) {
           session.title = title
+          if (updatedAt !== undefined) {
+            session.updatedAt = updatedAt
+          }
           await sessions.put(session)
           await tx.objectStore('sessionSummaries').put(storedSummary(session))
         }
@@ -305,13 +308,16 @@ const wcdbSaveSession = async (session: Session, files: StoredFile[] = []): Prom
   await wcdb.put(items)
 }
 
-const wcdbRenameSession = async (id: string, title: string): Promise<void> => {
+const wcdbRenameSession = async (id: string, title: string, updatedAt?: number): Promise<void> => {
   await ensureReady()
   const session = parseSession(await wcdb.get(KIND.session, id) ?? { kind: KIND.session, id })
   if (!session) {
     return
   }
   session.title = title
+  if (updatedAt !== undefined) {
+    session.updatedAt = updatedAt
+  }
   await wcdb.put([
     { kind: KIND.session, id, json: JSON.stringify(session) },
     { kind: KIND.summary, id, json: JSON.stringify(storedSummary(session)) },

@@ -24,6 +24,7 @@ export const settingsTitles: Record<SettingsSection, TranslationKey> = {
   general: 'settings',
   api: 'settingsApiManagement',
   data: 'settingDialogAsideDataOptionLabel',
+  sync: 'settingsSync',
   language: 'settingsLocalePreference',
   appearance: 'settingsAppearance',
   font: 'settingsFont',
@@ -45,6 +46,7 @@ const glyphs = {
   terms: 'M11 22H4V3h12l3 3v5M7 8h8m-8 4h5m-5 4h3m3 5 1-4 6-6 3 3-6 6-4 1Z',
   help: 'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM9 9a3 3 0 0 1 6 0c0 2-3 2-3 4m0 4v.1',
   usage: 'M3 3v18h18M7 16v-4m5 4V8m5 8V5',
+  sync: 'M20 12a8 8 0 0 1-13.7 5.6M4 12a8 8 0 0 1 13.7-5.6M17 3v4h-4M7 21v-4h4',
 }
 
 export const SettingsGroup = ({

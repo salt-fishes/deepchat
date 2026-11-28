@@ -1,6 +1,6 @@
-export const DRAWER_COMMIT_PROGRESS = 0.3
-export const DRAWER_FLING_VELOCITY = 0.45
-const MIN_RECENT_TRAVEL = 16
+export const DRAWER_COMMIT_PROGRESS = 0.26
+export const DRAWER_FLING_VELOCITY = 0.35
+const MIN_RECENT_TRAVEL = 14
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 
@@ -29,6 +29,8 @@ export const getDrawerMotion = (
 ) => {
   const target = targetOpen ? 1 : 0
   const distance = Math.abs(target - progress) * width
-  const duration = Math.round(clamp(280 + distance * 0.25 - Math.abs(velocity) * 100, 160, 320))
+  // Keep the release responsive: the sheet should continue the finger's
+  // movement immediately, not ease in from a dead stop.
+  const duration = Math.round(clamp(230 + distance * 0.18 - Math.abs(velocity) * 130, 140, 280))
   return { duration, easing: targetOpen ? 'enter' : 'exit' } as const
 }

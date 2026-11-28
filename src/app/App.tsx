@@ -35,6 +35,7 @@ import { registerBackButton } from './backButton.js'
 import styles from './App.module.css'
 import { resumeNativeImport } from '../services/chat/backup.js'
 import { routeNativeIntents } from '../services/nativeIntentRouter.js'
+import { startSyncEngine } from '../services/sync/engine.js'
 
 export const App = () => {
   const t = useTranslate()
@@ -83,6 +84,8 @@ export const App = () => {
   // 文件数、存储空间达到上限时，附件上只显示「上传失败」，原因用 toast 说明
   useEffect(() => onUploadNotice(showToast), [])
   useEffect(bindChatPersistence, [])
+  // 多端同步：启动、回前台、联网和本地改动后静默同步；未配置时不做任何事。
+  useEffect(startSyncEngine, [])
 
   // 搜索结果面板只属于当前会话
   useEffect(closeSearchPanel, [activeId])

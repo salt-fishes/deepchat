@@ -480,16 +480,20 @@ export const renameSession = (id: string, title: string) => {
   if (controller) {
     titleRequests.delete(controller)
   }
+  // 重命名也要推进 updatedAt，否则同步端按时间后写胜出时会丢掉标题。
+  const updatedAt = Date.now()
   if (getSession(id)) {
-    updateSession(id, (session) => ({ ...session, title }))
+    updateSession(id, (session) =>
+      session.title === title ? session : { ...session, title, updatedAt }
+    )
     persist(id)
   } else {
     set((state) => ({
       sessions: state.sessions.map((session) =>
-        session.id === id ? { ...session, title } : session
+        session.id === id && session.title !== title ? { ...session, title, updatedAt } : session
       ),
     }))
-    void db.renameSession(id, title).catch(db.reportStorageError('rename session'))
+    void db.renameSession(id, title, updatedAt).catch(db.reportStorageError('rename session'))
   }
 }
 
@@ -554,6 +558,27 @@ const removeSessionData = async (id: string): Promise<boolean> => {
       }
     }
   }
+}
+
+/**
+ * 同步拉取到远端会话后写入内存：已加载的会话直接替换，未加载的只更新摘要，
+ * 避免后台同步把整段历史读进缓存。数据本身由调用方先写入本地库。
+ */
+export const applyRemoteSession = (session: Session) => {
+  if (get().importingHistory) {
+    return
+  }
+  const summary = toSessionSummary(session)
+  set((state) => {
+    const known = state.sessions.some((item) => item.id === session.id)
+    const cached = Object.hasOwn(state.sessionCache, session.id)
+    return {
+      sessions: known
+        ? sortSessions(state.sessions.map((item) => (item.id === session.id ? summary : item)))
+        : sortSessions([...state.sessions, summary]),
+      sessionCache: cached ? { ...state.sessionCache, [session.id]: session } : state.sessionCache,
+    }
+  })
 }
 
 export const stopReply = (sessionId: string) => getStreamController(sessionId)?.abort()
@@ -713,7 +738,11 @@ export const selectMessageVersion = (sessionId: string, messageId: string) => {
   if (getStreamController(sessionId)) {
     return
   }
-  updateSession(sessionId, (session) => selectVersion(session, messageId))
+  updateSession(sessionId, (session) => {
+    const next = selectVersion(session, messageId)
+    // 切换分支也要推进时间，否则另一台设备收不到 selectedChildId 的变化。
+    return next === session ? session : { ...next, updatedAt: Date.now() }
+  })
   persist(sessionId)
 }
 
@@ -1126,6 +1155,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
     streamFlushes.delete(sessionId)
     cancelAnimationFrame(frame)
     updateReply(sessionId, reply)
+    // 助手回复落定后推进会话时间，同步端才会推送最终内容而不是半截流。
+    updateSession(sessionId, (session) => ({ ...session, updatedAt: Date.now() }))
     set((state) => ({
       streaming: Object.fromEntries(
         Object.entries(state.streaming).filter(([id]) => id !== sessionId)

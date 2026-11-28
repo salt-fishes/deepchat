@@ -61,6 +61,7 @@ import {
   type SettingsSection,
 } from './settingsDialogState.js'
 import { SettingsHome, SettingsGroup, SettingsRow, settingsTitles } from './SettingsHome.js'
+import { SyncSettings } from './SyncSettings.js'
 import {
   ApiActions,
   FontSettings,
@@ -359,6 +360,7 @@ const SettingsContent = ({
           key={apiKeyEditor.apiKey}
           editing={apiKeyEditor.showInput || apiKeyEditor.form.verifying}
         />
+        <SettingsRow page="sync" onNavigate={navigate} />
       </>
     ),
     data: (
@@ -386,6 +388,7 @@ const SettingsContent = ({
     language: <LocaleSetting />,
     appearance: <ThemeSetting />,
     font: <FontSettings />,
+    sync: <SyncSettings />,
     personalization: (
       <>
         <CompactThinkingSetting />

@@ -844,7 +844,7 @@ export const ImageWorkbench = () => {
     const atEdge =
       (dx > 0 && viewerIndexRef.current === 0) ||
       (dx < 0 && viewerIndexRef.current === gallery.length - 1)
-    const shift = atEdge ? dx * 0.28 : dx
+    const shift = atEdge ? dx * 0.5 : dx
     const element = viewImageRef.current
     if (element) {
       element.style.transition = 'none'

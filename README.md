@@ -27,14 +27,15 @@ The Android app closely recreates the look and feel of the original DeepSeek app
 
 ## Features
 
-| Capability           | Highlights                                                                                                                                                                                                                                                                             |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Chat**             | Manage conversations, search history, edit prompts, regenerate replies, switch branches, stop generation, and continue eligible replies. Streamed responses support Markdown, code highlighting, KaTeX, and Mermaid.                                                                   |
-| **Think and search** | Choose from three thinking effort levels, search the web, read links, and view source citations. **Settings → Personalization** controls thinking collapse and default thinking/search options. Composer changes apply only to the current conversation while the app is open.         |
-| **Files and voice**  | Upload, paste, or drag attachments. Android also supports taking and cropping photos. Press and hold an empty input to dictate, or have replies read aloud. Voice previews use the speech API and may incur charges.                                                                   |
-| **Personalization**  | English and Simplified Chinese, light/dark/system appearance, and chat text sizing independent of the interface. Android supports a swipe gesture for the conversation list and respects reduced-motion preferences.                                                                   |
-| **Data and usage**   | Import/export ZIP backups and clear chats under **Settings → Data**. **Usage statistics** shows local chat request counts and reported input/output tokens for today, the last 7 days, or the last 30 days. Counting starts with this version and is not a platform billing statement. |
-| **Updates**          | Settings checks this repository’s latest stable GitHub Release, shows release notes, and links to the APK when available. Updates are never installed automatically.                                                                                                                   |
+| Capability            | Highlights                                                                                                                                                                                                                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Chat**              | Manage conversations, search history, edit prompts, regenerate replies, switch branches, stop generation, and continue eligible replies. Streamed responses support Markdown, code highlighting, KaTeX, and Mermaid.                                                                   |
+| **Think and search**  | Choose from three thinking effort levels, search the web, read links, and view source citations. **Settings → Personalization** controls thinking collapse and default thinking/search options. Composer changes apply only to the current conversation while the app is open.         |
+| **Files and voice**   | Upload, paste, or drag attachments. Android also supports taking and cropping photos. Press and hold an empty input to dictate, or have replies read aloud. Voice previews use the speech API and may incur charges.                                                                   |
+| **Personalization**   | English and Simplified Chinese, light/dark/system appearance, and chat text sizing independent of the interface. Android supports a swipe gesture for the conversation list and respects reduced-motion preferences.                                                                   |
+| **Data and usage**    | Import/export ZIP backups and clear chats under **Settings → Data**. **Usage statistics** shows local chat request counts and reported input/output tokens for today, the last 7 days, or the last 30 days. Counting starts with this version and is not a platform billing statement. |
+| **Multi-device sync** | Optional. Paste a sync code from your own server once per device; text chats then sync silently and merge by ID. API keys, drafts, and attachment originals stay local. Requires HTTPS.                                                                                                |
+| **Updates**           | Settings checks this repository’s latest stable GitHub Release, shows release notes, and links to the APK when available. Updates are never installed automatically.                                                                                                                   |
 
 ## Downloads
 
@@ -110,6 +111,18 @@ Chat, attachments, and speech send the relevant content to the configured API se
 - **Clear chats:** under **Settings → Data**, removes local conversations, attachments, and unsent drafts, and stops active replies. It does not remove settings, usage statistics, or files already uploaded to the API.
 
 See the [ZIP format notes](src/services/chat/history/README.md) for archive details.
+
+## Multi-device sync
+
+Sync is optional and off until a device is configured.
+
+- **Enable:** Settings → Account → Multi-device sync. Paste the `dsc1.…` code (it fills in the server address), or enter the server address and key separately. There is no pairing prompt afterwards.
+- **What syncs:** session titles, messages, branch pointers, deletions, and image originals. Messages merge by ID; titles and branch selection use last-write-wins; deletions win over edits. Images are stored by SHA-256 on the server and downloaded on demand on other devices.
+- **What stays local:** API keys, drafts, interface settings, and non-image attachments.
+- **When it runs:** app launch, returning to the foreground, network recovery, shortly after messages are saved, and a visible-app poll. Fully closed apps do not sync until they are opened again.
+- **Server:** any HTTPS service implementing `GET /v1/changes` and `POST /v1/push` works. A reference Node 22 + SQLite service (single owner key, independent `sync.db`) can run next to an existing bot deployment.
+
+Sync requires HTTPS; Android WebView rejects self-signed certificates.
 
 ## Known limitations
 
